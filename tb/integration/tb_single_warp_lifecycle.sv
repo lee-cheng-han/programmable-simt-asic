@@ -4,7 +4,7 @@ module tb_single_warp_lifecycle;
   logic [5:0] prog_addr; logic [31:0] prog_data,launch_pc,fault_pc;
   logic launch_ready,running,done,fault,commit_valid;
   fault_code_t fault_code; completion_record_t commit;
-  int unsigned commits;
+  int unsigned commits, mul_commits;
   always #5 clk<=~clk;
   single_warp_core dut(.clk(clk),.rst(rst),.clear_i(clear),.*,
     .prog_valid_i(prog_valid),.prog_addr_i(prog_addr),.prog_data_i(prog_data),
@@ -39,7 +39,21 @@ module tb_single_warp_lifecycle;
       if(done)break;end
     if(!done||commits!=6)$fatal(1,"partial-exit completion mismatch commits=%0d",commits);
 
-    pulse_clear(); program_word(0,32'h0c044800); // MUL R1,R1,R2
+    pulse_clear(); program_word(0,32'h38040007); program_word(1,32'h38080003);
+    program_word(2,32'h0c0c4800); program_word(3,32'h78000000); launch();
+    mul_commits=0;
+    repeat(80)begin @(negedge clk);#1;
+      if(fault)$fatal(1,"multiply program faulted");
+      if(commit_valid)begin
+        if(commit.sequence_number==2 &&
+           (commit.completion_class!=COMPLETION_MULTIPLIER ||
+            commit.gpr_dst!=3 || commit.gpr_data[4]!=21))
+          $fatal(1,"multiply completion mismatch");
+        mul_commits++;end
+      if(done)break;end
+    if(!done||mul_commits!=4)$fatal(1,"multiply completion count=%0d",mul_commits);
+
+    pulse_clear(); program_word(0,32'h70000000); // BAR
     launch(); wait_fault(FAULT_UNSUPPORTED_STAGE,0);
     if(done||commit_valid)$fatal(1,"unsupported instruction committed");
 

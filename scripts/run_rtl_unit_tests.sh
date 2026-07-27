@@ -86,6 +86,32 @@ verilator --binary --timing --assert --Wall \
   tb/unit/tb_dependency_scoreboard.sv
 build/verilator/dependency_scoreboard/Vtb_dependency_scoreboard
 
+mkdir -p build/verilator/round_robin_arbiter
+verilator --binary --timing --assert --Wall \
+  --Mdir build/verilator/round_robin_arbiter \
+  --top-module tb_round_robin_arbiter \
+  rtl/control/round_robin_arbiter.sv \
+  tb/unit/tb_round_robin_arbiter.sv
+build/verilator/round_robin_arbiter/Vtb_round_robin_arbiter
+
+mkdir -p build/verilator/vector_multiplier_pipeline
+verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
+  --Mdir build/verilator/vector_multiplier_pipeline \
+  --top-module tb_vector_multiplier_pipeline \
+  rtl/simt_gpu_pkg.sv rtl/execute/completion_queue.sv \
+  rtl/execute/vector_multiplier_pipeline.sv \
+  tb/unit/tb_vector_multiplier_pipeline.sv
+build/verilator/vector_multiplier_pipeline/Vtb_vector_multiplier_pipeline
+
+mkdir -p build/verilator/completion_arbiter
+verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
+  --Mdir build/verilator/completion_arbiter \
+  --top-module tb_completion_arbiter \
+  rtl/simt_gpu_pkg.sv rtl/control/round_robin_arbiter.sv \
+  rtl/execute/completion_arbiter.sv \
+  tb/unit/tb_completion_arbiter.sv
+build/verilator/completion_arbiter/Vtb_completion_arbiter
+
 mkdir -p build/verilator/single_warp_core
 verilator --binary --timing --assert --Wall \
   --Mdir build/verilator/single_warp_core --top-module tb_single_warp_core \
@@ -96,8 +122,10 @@ verilator --binary --timing --assert --Wall \
   rtl/register_file/predicate_register_file.sv \
   rtl/execute/integer_lane.sv rtl/execute/vector_integer_alu.sv \
   rtl/execute/completion_queue.sv rtl/execute/alu_completion_stage.sv \
+  rtl/execute/vector_multiplier_pipeline.sv rtl/execute/completion_arbiter.sv \
   rtl/execute/architectural_writeback.sv \
-  rtl/control/dependency_scoreboard.sv rtl/control/fatal_fault_controller.sv \
+  rtl/control/dependency_scoreboard.sv rtl/control/round_robin_arbiter.sv \
+  rtl/control/fatal_fault_controller.sv \
   rtl/core/single_warp_core.sv \
   tb/integration/tb_single_warp_core.sv
 build/verilator/single_warp_core/Vtb_single_warp_core
@@ -116,7 +144,9 @@ verilator --binary --timing --assert --Wall \
   rtl/frontend/instruction_decoder.sv rtl/register_file/vector_register_file.sv \
   rtl/register_file/predicate_register_file.sv rtl/execute/integer_lane.sv \
   rtl/execute/vector_integer_alu.sv rtl/execute/completion_queue.sv \
-  rtl/execute/alu_completion_stage.sv rtl/execute/architectural_writeback.sv \
-  rtl/control/dependency_scoreboard.sv rtl/control/fatal_fault_controller.sv \
+  rtl/execute/alu_completion_stage.sv rtl/execute/vector_multiplier_pipeline.sv \
+  rtl/execute/completion_arbiter.sv rtl/execute/architectural_writeback.sv \
+  rtl/control/dependency_scoreboard.sv rtl/control/round_robin_arbiter.sv \
+  rtl/control/fatal_fault_controller.sv \
   rtl/core/single_warp_core.sv tb/integration/tb_single_warp_lifecycle.sv
 build/verilator/single_warp_lifecycle/Vtb_single_warp_lifecycle

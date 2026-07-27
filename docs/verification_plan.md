@@ -77,6 +77,19 @@ destination clear matching, rejection of wrong tags, same-cycle GPR commit relea
 for register-file forwarding, and the required lack of same-cycle predicate
 release. An assertion forbids accepted issue while any dependency is unresolved.
 
+The round-robin issue test drives all four requesters, sparse eligibility, and a
+three-cycle downstream stall. It checks accepted grants rotate 0, 1, 2, 3,
+priority advances only on acceptance, and the selected request remains stable
+while stalled. The completion-arbiter test repeats the protocol across all three
+architectural completion classes.
+
+The multiplier test accepts three fully tagged vector operations on consecutive
+cycles, checks all eight low-32-bit products, fills the two-entry completion
+queue and three pipeline stages under sink backpressure, drains in order, and
+verifies flush cancellation. The lifecycle integration test executes a dependent
+`MUL`, observes a multiplier-class architectural completion, and confirms clean
+drain before kernel completion.
+
 The single-warp integration test programs instruction memory and executes two
 independent immediate writes, a RAW-dependent add, a predicate comparison, a
 predicate-dependent guarded add, and lane-level `EXIT`. It checks six ordered,
@@ -84,7 +97,7 @@ fully tagged architectural commits, representative lane results, predicate data,
 pipeline drainage, and clean kernel completion without a fault.
 
 The lifecycle integration test covers partial-mask and final lane exit, surviving-
-lane execution, unsupported-stage and illegal-instruction faults, instruction
+lane execution, multiplier completion, unsupported-stage and illegal-instruction faults, instruction
 programming while busy, same-cycle suppression, sticky diagnostics, and clear
 recovery. The C++ emulator and RTL independently emit complete register,
 predicate, active-mask, PC, and instruction state after each architectural event;

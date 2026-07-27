@@ -14,7 +14,10 @@ xvlog -sv build/simt_isa_pkg.sv rtl/simt_gpu_pkg.sv \
   rtl/execute/alu_completion_stage.sv \
   rtl/execute/architectural_writeback.sv \
   rtl/control/dependency_scoreboard.sv \
+  rtl/control/round_robin_arbiter.sv \
   rtl/control/fatal_fault_controller.sv \
+  rtl/execute/vector_multiplier_pipeline.sv \
+  rtl/execute/completion_arbiter.sv \
   rtl/core/single_warp_core.sv \
   tb/unit/tb_package_smoke.sv tb/unit/tb_instruction_decoder.sv \
   tb/unit/tb_vector_register_file.sv tb/unit/tb_predicate_register_file.sv \
@@ -22,6 +25,9 @@ xvlog -sv build/simt_isa_pkg.sv rtl/simt_gpu_pkg.sv \
   tb/unit/tb_writeback_unit.sv tb/unit/tb_completion_queue.sv \
   tb/unit/tb_alu_completion_writeback.sv \
   tb/unit/tb_dependency_scoreboard.sv \
+  tb/unit/tb_round_robin_arbiter.sv \
+  tb/unit/tb_vector_multiplier_pipeline.sv \
+  tb/unit/tb_completion_arbiter.sv \
   tb/integration/tb_single_warp_core.sv \
   tb/integration/tb_single_warp_lifecycle.sv
 xelab tb_package_smoke -s tb_package_smoke_sim
@@ -34,5 +40,8 @@ xelab tb_writeback_unit -s tb_writeback_unit_sim
 xelab tb_completion_queue -s tb_completion_queue_sim
 xelab tb_alu_completion_writeback -s tb_alu_completion_writeback_sim
 xelab tb_dependency_scoreboard -s tb_dependency_scoreboard_sim
+xelab tb_round_robin_arbiter -s tb_round_robin_arbiter_sim
+xelab tb_vector_multiplier_pipeline -s tb_vector_multiplier_pipeline_sim
+xelab tb_completion_arbiter -s tb_completion_arbiter_sim
 xelab tb_single_warp_core -s tb_single_warp_core_sim
 xelab tb_single_warp_lifecycle -s tb_single_warp_lifecycle_sim

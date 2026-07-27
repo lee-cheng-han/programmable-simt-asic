@@ -22,7 +22,8 @@ module single_warp_core #(
   opcode_t opcode; logic [1:0] pred_index; logic [3:0] rd, ra, rb;
   logic signed [9:0] imm; logic uses_ra, uses_rb, writes_gpr, writes_pred;
   logic is_load, is_store, is_branch;
-  logic supported, issue_fire, scoreboard_ready, alu_result_ready, queue_ready;
+  logic supported, issue_fire, scoreboard_ready, alu_result_ready;
+  logic is_multiply, selected_result_ready;
   logic [REGS_PER_THREAD-1:0] gpr_sources;
   logic [PREDS_PER_THREAD-1:0] pred_sources;
   logic [INSTRUCTION_SEQUENCE_WIDTH-1:0] sequence_q;
@@ -32,8 +33,19 @@ module single_warp_core #(
   lane_mask_t alu_pred_result, branch_condition;
   word_t [LANES-1:0] memory_address, store_data;
   logic alu_unsupported, stale_cancel;
-  logic completion_v; completion_record_t completion;
-  logic [1:0] completion_occupancy;
+  logic completion_v, completion_ready;
+  completion_record_t completion;
+  logic alu_completion_v, alu_completion_ready;
+  completion_record_t alu_completion;
+  logic [1:0] alu_completion_occupancy;
+  logic mul_completion_v, mul_completion_ready;
+  completion_record_t mul_completion;
+  logic [1:0] mul_completion_occupancy;
+  logic mul_issue_ready;
+  logic [MULTIPLIER_LATENCY-1:0] mul_stage_valid;
+  logic [2:0] completion_source_valid, completion_source_ready;
+  completion_record_t completion_sources [3];
+  logic [1:0] selected_completion_source;
   logic wb_commit_v, wb_gpr_v, wb_pred_v, clear_gpr_v, clear_pred_v;
   logic [WARP_ID_WIDTH-1:0] wb_gpr_warp, wb_pred_warp, clear_warp;
   logic [REG_INDEX_WIDTH-1:0] wb_gpr_reg, clear_gpr;
@@ -74,7 +86,8 @@ module single_warp_core #(
 
   always_comb begin
     supported = legal && !is_load && !is_store && !is_branch &&
-                opcode != OP_MUL && opcode != OP_BAR && opcode != OP_SYNC;
+                opcode != OP_BAR && opcode != OP_SYNC;
+    is_multiply = opcode == OP_MUL;
     gpr_sources = '0; pred_sources = '0;
     if (uses_ra) gpr_sources[ra] = 1'b1;
     if (uses_rb) gpr_sources[rb] = 1'b1;
@@ -84,8 +97,10 @@ module single_warp_core #(
   assign unsupported_fault = fetch_v && legal && !supported;
   assign busy_program_fault = prog_valid_i && (launched_q || fetch_running);
   assign launch_ready_o = fetch_start_ready && !launched_q && !fatal_now;
+  assign selected_result_ready = is_multiply ? mul_issue_ready :
+                                               alu_result_ready;
   assign fetch_r = fetch_v && supported && scoreboard_ready &&
-                   alu_result_ready && !fatal_now;
+                   selected_result_ready && !fatal_now;
   assign issue_fire = fetch_v && fetch_r;
   assign running_o = fetch_running || (launched_q && !done_q && !fault_valid);
   assign done_o = done_q;
@@ -144,17 +159,51 @@ module single_warp_core #(
     .clear_gpr_i(clear_gpr), .clear_pred_i(clear_pred),
     .gpr_pending_o(gpr_pending), .pred_pending_o(pred_pending));
   alu_completion_stage completion_u (.clk(clk), .rst(rst), .flush_i(clear_i || fatal_now),
-    .result_valid_i(issue_fire), .result_ready_o(alu_result_ready),
+    .result_valid_i(issue_fire && !is_multiply),
+    .result_ready_o(alu_result_ready),
     .epoch_i(epoch_q), .warp_id_i('0), .sequence_number_i(sequence_q),
     .pc_i(fetch_pc), .instruction_i(fetch_insn), .active_mask_i(active_mask_q),
     .write_mask_i(execute_mask), .writes_gpr_i(writes_gpr), .gpr_dst_i(rd),
     .gpr_mask_i(gpr_mask), .gpr_data_i(alu_result), .writes_pred_i(writes_pred),
     .pred_dst_i(rd[1:0]), .pred_mask_i(pred_write_mask),
-    .pred_data_i(alu_pred_result), .completion_valid_o(completion_v),
-    .completion_ready_i(queue_ready), .completion_o(completion),
-    .occupancy_o(completion_occupancy));
+    .pred_data_i(alu_pred_result), .completion_valid_o(alu_completion_v),
+    .completion_ready_i(alu_completion_ready),
+    .completion_o(alu_completion),
+    .occupancy_o(alu_completion_occupancy));
+  vector_multiplier_pipeline multiplier_u (
+    .clk(clk), .rst(rst), .flush_i(clear_i || fatal_now),
+    .issue_valid_i(issue_fire && is_multiply),
+    .issue_ready_o(mul_issue_ready), .epoch_i(epoch_q), .warp_id_i('0),
+    .sequence_number_i(sequence_q), .pc_i(fetch_pc),
+    .instruction_i(fetch_insn), .active_mask_i(active_mask_q),
+    .write_mask_i(execute_mask), .gpr_dst_i(rd),
+    .src_a_i(src_a), .src_b_i(src_b),
+    .completion_valid_o(mul_completion_v),
+    .completion_ready_i(mul_completion_ready),
+    .completion_o(mul_completion),
+    .queue_occupancy_o(mul_completion_occupancy),
+    .stage_valid_o(mul_stage_valid));
+  always_comb begin
+    completion_source_valid = '0;
+    completion_source_valid[0] = alu_completion_v;
+    completion_source_valid[1] = mul_completion_v;
+    completion_sources[0] = alu_completion;
+    completion_sources[1] = mul_completion;
+    completion_sources[2] = '0;
+    alu_completion_ready = completion_source_ready[0];
+    mul_completion_ready = completion_source_ready[1];
+  end
+  completion_arbiter #(.SOURCES(3)) completion_arbiter_u (
+    .clk(clk), .rst(rst), .clear_i(clear_i || fatal_now),
+    .source_valid_i(completion_source_valid),
+    .source_ready_o(completion_source_ready),
+    .source_completion_i(completion_sources),
+    .completion_valid_o(completion_v),
+    .completion_ready_i(completion_ready),
+    .completion_o(completion),
+    .selected_source_o(selected_completion_source));
   architectural_writeback wb_u (.fatal_i(fatal_now), .current_epoch_i(epoch_q),
-    .completion_valid_i(completion_v), .completion_ready_o(queue_ready),
+    .completion_valid_i(completion_v), .completion_ready_o(completion_ready),
     .completion_i(completion), .commit_valid_o(wb_commit_v), .commit_ready_i(1'b1),
     .commit_o(commit_o), .stale_cancel_o(stale_cancel),
     .gpr_write_valid_o(wb_gpr_v), .gpr_write_warp_o(wb_gpr_warp),
@@ -180,7 +229,8 @@ module single_warp_core #(
         if (opcode == OP_EXIT) active_mask_q <= active_mask_q & ~execute_mask;
       end
       if (launched_q && active_mask_q == '0 && !fetch_running &&
-          !completion_v && completion_occupancy == 0 &&
+          !completion_v && alu_completion_occupancy == 0 &&
+          mul_completion_occupancy == 0 && mul_stage_valid == '0 &&
           gpr_pending == '0 && pred_pending == '0 && !fatal_now)
         done_q <= 1'b1;
     end
@@ -199,6 +249,8 @@ module single_warp_core #(
     end
     assert (!stale_cancel);
     if (fault_valid) assert (simultaneous_causes != 0);
+    assert (!completion_source_ready[2]);
+    if (completion_v) assert (selected_completion_source < 2);
   end
 `endif
 endmodule

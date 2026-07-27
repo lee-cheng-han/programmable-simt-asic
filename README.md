@@ -12,12 +12,12 @@ checkable architectural behavior.
 ## Current status
 
 ```text
-Release stage:  Four-warp execution and multiplier preparation
-Completed:      Verified executable single-warp integer/predicate processor
-Verified:       Python, C++, Verilator, and XSim component regressions
-In progress:    SRAM feasibility and four-warp context architecture
-Next:           Round-robin warp scheduling and three-stage multiplier
-Not started:    Multi-warp scheduling, memory system, DFT, physical implementation
+Release stage:  Four-warp execution and multiplier integration
+Completed:      Executable single-warp processor with ALU/multiplier writeback
+Verified:       Python, C++, Verilator, architectural trace, and XSim components
+In progress:    Four-warp context/fetch integration and SRAM feasibility
+Next:           Execute four resident warps through the shared issue fabric
+Not started:    Memory system, divergence RTL, DFT, physical implementation
 ```
 
 The authoritative contract is [docs/architecture.md](docs/architecture.md).
