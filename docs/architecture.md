@@ -188,6 +188,12 @@ pipeline or multiplier entries, memory trackers, completion queues, pending
 writeback, active barrier, or BIST transition. Epoch wrap is safe only because
 quiescence guarantees no older matching operation can return.
 
+The internal launch shape supplies one common entry PC and a resident-warp count
+from one through four. Every launched warp begins at that PC with all eight
+lanes active, zeroed sequence state, and its architectural warp ID available
+through `S2R WID`. Invalid warp counts are not accepted. The host register layer
+may add richer grid metadata later without changing this core launch contract.
+
 ## Fatal faults and cancellation
 
 A fatal fault uses a dedicated sticky capture path and does not compete for or

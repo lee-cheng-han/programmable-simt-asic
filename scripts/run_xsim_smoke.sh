@@ -19,6 +19,7 @@ xvlog -sv build/simt_isa_pkg.sv rtl/simt_gpu_pkg.sv \
   rtl/execute/vector_multiplier_pipeline.sv \
   rtl/execute/completion_arbiter.sv \
   rtl/core/single_warp_core.sv \
+  rtl/core/four_warp_core.sv \
   tb/unit/tb_package_smoke.sv tb/unit/tb_instruction_decoder.sv \
   tb/unit/tb_vector_register_file.sv tb/unit/tb_predicate_register_file.sv \
   tb/unit/tb_vector_integer_alu.sv tb/unit/tb_instruction_fetch.sv \
@@ -29,7 +30,8 @@ xvlog -sv build/simt_isa_pkg.sv rtl/simt_gpu_pkg.sv \
   tb/unit/tb_vector_multiplier_pipeline.sv \
   tb/unit/tb_completion_arbiter.sv \
   tb/integration/tb_single_warp_core.sv \
-  tb/integration/tb_single_warp_lifecycle.sv
+  tb/integration/tb_single_warp_lifecycle.sv \
+  tb/integration/tb_four_warp_core.sv
 xelab tb_package_smoke -s tb_package_smoke_sim
 xelab tb_instruction_decoder -s tb_instruction_decoder_sim
 xelab tb_vector_register_file -s tb_vector_register_file_sim
@@ -45,3 +47,4 @@ xelab tb_vector_multiplier_pipeline -s tb_vector_multiplier_pipeline_sim
 xelab tb_completion_arbiter -s tb_completion_arbiter_sim
 xelab tb_single_warp_core -s tb_single_warp_core_sim
 xelab tb_single_warp_lifecycle -s tb_single_warp_lifecycle_sim
+xelab tb_four_warp_core -s tb_four_warp_core_sim

@@ -12,15 +12,17 @@ checkable architectural behavior.
 ## Current status
 
 ```text
-Release stage:  Four-warp execution and multiplier integration
-Completed:      Executable single-warp processor with ALU/multiplier writeback
+Release stage:  Divergence and reconvergence preparation
+Completed:      Four-warp round-robin execution with ALU/multiplier writeback
 Verified:       Python, C++, Verilator, architectural trace, and XSim components
-In progress:    Four-warp context/fetch integration and SRAM feasibility
-Next:           Execute four resident warps through the shared issue fabric
-Not started:    Memory system, divergence RTL, DFT, physical implementation
+In progress:    SRAM feasibility and SIMT-stack architecture
+Next:           Branch masks, SSY/SYNC, redirects, and reconvergence
+Not started:    Memory system, DFT, physical implementation
 ```
 
 The authoritative contract is [docs/architecture.md](docs/architecture.md).
+[Measured warp-interleaving results](docs/performance_results.md) report the
+checked-in one-warp versus four-warp arithmetic baseline.
 Supporting documents explain individual topics but cannot override it.
 
 ## Frozen tapeout configuration

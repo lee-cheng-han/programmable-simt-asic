@@ -90,6 +90,14 @@ verifies flush cancellation. The lifecycle integration test executes a dependent
 `MUL`, observes a multiplier-class architectural completion, and confirms clean
 drain before kernel completion.
 
+The four-warp integration test launches one and four resident warps through the
+same instruction stream. It checks independent PC, active-mask, sequence,
+register, and scoreboard state; `S2R WID`; all 24 ordered per-warp commits;
+round-robin progress; multiplier tags; counters; and full-machine drainage. Its
+dependency-heavy arithmetic baseline records 0.428 IPC for one warp and 0.827
+IPC for four warps. The checked-in result and interpretation are in
+`docs/performance_results.md`.
+
 The single-warp integration test programs instruction memory and executes two
 independent immediate writes, a RAW-dependent add, a predicate comparison, a
 predicate-dependent guarded add, and lane-level `EXIT`. It checks six ordered,
