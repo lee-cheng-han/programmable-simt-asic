@@ -37,7 +37,7 @@ module tb_vector_multiplier_pipeline;
     issue_valid = 1;
     epoch = 6'(id + 1);
     warp = 2'(id % WARPS);
-    sequence_number = 16'(16'h100 + id);
+    sequence_number = INSTRUCTION_SEQUENCE_WIDTH'(32'h100 + id);
     pc = 32'(id * 4);
     instruction = 32'h0300_0000 | id;
     active_mask = 8'hff;
@@ -54,7 +54,8 @@ module tb_vector_multiplier_pipeline;
     if (completion.completion_class != COMPLETION_MULTIPLIER ||
         completion.epoch != 6'(id + 1) ||
         completion.warp_id != 2'(id % WARPS) ||
-        completion.sequence_number != 16'(16'h100 + id) ||
+        completion.sequence_number !=
+          INSTRUCTION_SEQUENCE_WIDTH'(32'h100 + id) ||
         completion.gpr_dst != 4'(id + 1) ||
         completion.gpr_mask != 8'hf7 ||
         !completion.clear_gpr_pending)
