@@ -1,4 +1,4 @@
-module four_warp_core #(
+module simt_core #(
   parameter int unsigned IMEM_WORDS = 64,
   parameter int unsigned IMEM_ADDR_W = $clog2(IMEM_WORDS)
 ) (
@@ -31,6 +31,14 @@ module four_warp_core #(
   logic [WARPS-1:0][31:0] warp_pc_q;
   logic [WARPS-1:0][INSTRUCTION_SEQUENCE_WIDTH-1:0] warp_sequence_q;
   lane_mask_t warp_active_mask_q [WARPS];
+  /* verilator lint_off WIDTHTRUNC */
+  logic [31:0] stack_reconv_q [WARPS][SIMT_STACK_DEPTH];
+  logic [31:0] stack_deferred_pc_q [WARPS][SIMT_STACK_DEPTH];
+  lane_mask_t stack_deferred_mask_q [WARPS][SIMT_STACK_DEPTH];
+  lane_mask_t stack_union_mask_q [WARPS][SIMT_STACK_DEPTH];
+  logic stack_deferred_q [WARPS][SIMT_STACK_DEPTH];
+  logic [WARPS-1:0][$clog2(SIMT_STACK_DEPTH+1)-1:0] stack_depth_q;
+  logic [WARPS-1:0] ssy_valid_q;
   logic [KERNEL_EPOCH_WIDTH-1:0] epoch_q;
   logic launched_q, done_q;
 
@@ -93,8 +101,12 @@ module four_warp_core #(
 
   logic fatal_now, fault_valid, busy_program_fault;
   logic fetch_range_fault, illegal_fault, unsupported_fault;
+  logic control_fault;
+  fault_code_t control_fault_code;
+  lane_mask_t branch_taken_mask, branch_not_taken_mask;
+  logic branch_divergent;
   logic [31:0] selected_fault_pc;
-  logic [3:0] simultaneous_causes;
+  logic [4:0] simultaneous_causes;
 
   for (genvar warp = 0; warp < WARPS; warp++) begin : gen_decode
     always_comb begin
@@ -114,8 +126,9 @@ module four_warp_core #(
 
     always_comb begin
       supported[warp] = legal[warp] && !is_load[warp] && !is_store[warp] &&
-                        !is_branch[warp] && opcode[warp] != OP_BAR &&
-                        opcode[warp] != OP_SYNC;
+                        opcode[warp] != OP_BAR &&
+                        (!is_branch[warp] || opcode[warp] == OP_BRA ||
+                         opcode[warp] == OP_SSY);
       warp_gpr_sources[warp] = '0;
       warp_pred_sources[warp] = '0;
       if (uses_ra[warp]) warp_gpr_sources[warp][ra[warp]] = 1'b1;
@@ -133,7 +146,7 @@ module four_warp_core #(
   end
 
   round_robin_arbiter #(.REQUESTERS(WARPS)) scheduler_u (
-    .clk(clk), .rst(rst), .clear_i(clear_i || fatal_now),
+    .clk(clk), .rst(rst), .clear_i(clear_i),
     .request_i(scheduler_request), .grant_valid_o(scheduler_valid),
     .grant_index_o(scheduler_warp), .grant_onehot_o(scheduler_grant),
     .grant_accept_i(issue_fire));
@@ -154,6 +167,9 @@ module four_warp_core #(
     selected_instruction = warp_instruction[scheduler_warp];
     selected_active_mask = warp_active_mask_q[scheduler_warp];
     selected_is_multiply = selected_opcode == OP_MUL;
+  end
+
+  always_comb begin
     selected_result_ready = selected_is_multiply ? mul_issue_ready :
                                                      alu_result_ready;
     issue_fire = scheduler_valid && selected_result_ready &&
@@ -188,7 +204,7 @@ module four_warp_core #(
   end
 
   vector_integer_alu alu_u (
-    .valid_i(issue_fire), .opcode_i(selected_opcode),
+    .valid_i(scheduler_valid), .opcode_i(selected_opcode),
     .active_mask_i(selected_active_mask), .predicate_mask_i(pred_mask),
     .predicate_invert_i(selected_pred_invert),
     .guard_exec_i(selected_guard_exec),
@@ -203,7 +219,7 @@ module four_warp_core #(
     .unsupported_operation_o(alu_unsupported));
 
   dependency_scoreboard scoreboard_u (
-    .clk(clk), .rst(rst), .clear_i(clear_i || fatal_now),
+    .clk(clk), .rst(rst), .clear_i(clear_i),
     .issue_warp_i(scheduler_warp),
     .issue_gpr_sources_i(warp_gpr_sources[scheduler_warp]),
     .issue_gpr_dest_valid_i(selected_writes_gpr),
@@ -248,6 +264,36 @@ module four_warp_core #(
     .completion_ready_i(mul_completion_ready),
     .completion_o(mul_completion), .queue_occupancy_o(mul_occupancy),
     .stage_valid_o(mul_stage_valid));
+
+  always_comb begin
+    branch_taken_mask = execute_mask;
+    branch_not_taken_mask = selected_active_mask & ~execute_mask;
+    branch_divergent = selected_opcode == OP_BRA &&
+                       branch_taken_mask != '0 &&
+                       branch_not_taken_mask != '0;
+    control_fault = 1'b0;
+    control_fault_code = FAULT_NONE;
+    if (scheduler_valid && selected_opcode == OP_SSY &&
+        stack_depth_q[scheduler_warp] ==
+          $clog2(SIMT_STACK_DEPTH+1)'(SIMT_STACK_DEPTH)) begin
+      control_fault = 1'b1;
+      control_fault_code = FAULT_SIMT_STACK_OVERFLOW;
+    end else if (scheduler_valid && selected_opcode == OP_SYNC &&
+                 stack_depth_q[scheduler_warp] == 0) begin
+      control_fault = 1'b1;
+      control_fault_code = FAULT_SIMT_STACK_UNDERFLOW;
+    end else if (scheduler_valid && selected_opcode == OP_SYNC &&
+                 stack_reconv_q[scheduler_warp]
+                   [stack_depth_q[scheduler_warp]-1'b1] != selected_pc) begin
+      control_fault = 1'b1;
+      control_fault_code = FAULT_SIMT_CONTROL;
+    end else if (scheduler_valid && branch_divergent &&
+                 (!ssy_valid_q[scheduler_warp] ||
+                  stack_depth_q[scheduler_warp] == 0)) begin
+      control_fault = 1'b1;
+      control_fault_code = FAULT_SIMT_CONTROL;
+    end
+  end
 
   always_comb begin
     source_valid = '0;
@@ -331,6 +377,9 @@ module four_warp_core #(
     .illegal_fault_i(illegal_fault), .illegal_fault_pc_i(selected_fault_pc),
     .unsupported_fault_i(unsupported_fault),
     .unsupported_fault_pc_i(selected_fault_pc),
+    .control_fault_i(control_fault),
+    .control_fault_code_i(control_fault_code),
+    .control_fault_pc_i(selected_pc),
     .fatal_now_o(fatal_now), .fault_valid_o(fault_valid),
     .fault_code_o(fault_code_o), .fault_pc_o(fault_pc_o),
     .simultaneous_causes_o(simultaneous_causes));
@@ -342,6 +391,15 @@ module four_warp_core #(
         warp_pc_q[warp] <= '0;
         warp_sequence_q[warp] <= '0;
         warp_active_mask_q[warp] <= '0;
+        stack_depth_q[warp] <= '0;
+        ssy_valid_q[warp] <= 1'b0;
+        for (int unsigned entry = 0; entry < SIMT_STACK_DEPTH; entry++) begin
+          stack_reconv_q[warp][entry] <= '0;
+          stack_deferred_pc_q[warp][entry] <= '0;
+          stack_deferred_mask_q[warp][entry] <= '0;
+          stack_union_mask_q[warp][entry] <= '0;
+          stack_deferred_q[warp][entry] <= 1'b0;
+        end
       end
       epoch_q <= '0;
       launched_q <= 1'b0;
@@ -355,6 +413,8 @@ module four_warp_core #(
         warp_pc_q[warp] <= '0;
         warp_sequence_q[warp] <= '0;
         warp_active_mask_q[warp] <= '0;
+        stack_depth_q[warp] <= '0;
+        ssy_valid_q[warp] <= 1'b0;
       end
       epoch_q <= epoch_q + 1'b1;
       launched_q <= 1'b0;
@@ -371,6 +431,8 @@ module four_warp_core #(
           warp_pc_q[warp] <= launch_pc_i;
           warp_sequence_q[warp] <= '0;
           warp_active_mask_q[warp] <= '1;
+          stack_depth_q[warp] <= '0;
+          ssy_valid_q[warp] <= 1'b0;
         end
         launched_q <= 1'b1;
         done_q <= 1'b0;
@@ -384,14 +446,73 @@ module four_warp_core #(
       end
 
       if (issue_fire) begin
-        warp_pc_q[scheduler_warp] <= warp_pc_q[scheduler_warp] + 1'b1;
         warp_sequence_q[scheduler_warp] <=
           warp_sequence_q[scheduler_warp] + 1'b1;
-        if (selected_opcode == OP_EXIT) begin
+        if (selected_opcode == OP_SSY) begin
+          stack_reconv_q[scheduler_warp][stack_depth_q[scheduler_warp]] <=
+            selected_pc + 1'b1 + {{22{selected_imm[9]}}, selected_imm};
+          stack_deferred_pc_q[scheduler_warp]
+            [stack_depth_q[scheduler_warp]] <= '0;
+          stack_deferred_mask_q[scheduler_warp]
+            [stack_depth_q[scheduler_warp]] <= '0;
+          stack_union_mask_q[scheduler_warp]
+            [stack_depth_q[scheduler_warp]] <= selected_active_mask;
+          stack_deferred_q[scheduler_warp]
+            [stack_depth_q[scheduler_warp]] <= 1'b0;
+          stack_depth_q[scheduler_warp] <=
+            stack_depth_q[scheduler_warp] + 1'b1;
+          ssy_valid_q[scheduler_warp] <= 1'b1;
+          warp_pc_q[scheduler_warp] <= selected_pc + 1'b1;
+        end else if (selected_opcode == OP_BRA) begin
+          if (branch_divergent) begin
+            stack_deferred_pc_q[scheduler_warp]
+              [stack_depth_q[scheduler_warp]-1'b1] <= selected_pc + 1'b1;
+            stack_deferred_mask_q[scheduler_warp]
+              [stack_depth_q[scheduler_warp]-1'b1] <=
+                branch_not_taken_mask;
+            stack_union_mask_q[scheduler_warp]
+              [stack_depth_q[scheduler_warp]-1'b1] <= selected_active_mask;
+            stack_deferred_q[scheduler_warp]
+              [stack_depth_q[scheduler_warp]-1'b1] <= 1'b1;
+            warp_active_mask_q[scheduler_warp] <= branch_taken_mask;
+            warp_pc_q[scheduler_warp] <=
+              selected_pc + 1'b1 + {{22{selected_imm[9]}}, selected_imm};
+            ssy_valid_q[scheduler_warp] <= 1'b0;
+          end else if (branch_taken_mask != '0) begin
+            warp_pc_q[scheduler_warp] <=
+              selected_pc + 1'b1 + {{22{selected_imm[9]}}, selected_imm};
+          end else begin
+            warp_pc_q[scheduler_warp] <= selected_pc + 1'b1;
+          end
+        end else if (selected_opcode == OP_SYNC) begin
+          if (stack_deferred_q[scheduler_warp]
+                [stack_depth_q[scheduler_warp]-1'b1]) begin
+            warp_pc_q[scheduler_warp] <=
+              stack_deferred_pc_q[scheduler_warp]
+                [stack_depth_q[scheduler_warp]-1'b1];
+            warp_active_mask_q[scheduler_warp] <=
+              stack_deferred_mask_q[scheduler_warp]
+                [stack_depth_q[scheduler_warp]-1'b1];
+            stack_deferred_q[scheduler_warp]
+              [stack_depth_q[scheduler_warp]-1'b1] <= 1'b0;
+          end else begin
+            warp_pc_q[scheduler_warp] <= selected_pc + 1'b1;
+            warp_active_mask_q[scheduler_warp] <=
+              stack_union_mask_q[scheduler_warp]
+                [stack_depth_q[scheduler_warp]-1'b1];
+            stack_depth_q[scheduler_warp] <=
+              stack_depth_q[scheduler_warp] - 1'b1;
+            ssy_valid_q[scheduler_warp] <= 1'b0;
+          end
+        end else if (selected_opcode == OP_EXIT) begin
+          warp_pc_q[scheduler_warp] <= selected_pc + 1'b1;
           warp_active_mask_q[scheduler_warp] <=
             selected_active_mask & ~execute_mask;
-          if ((selected_active_mask & ~execute_mask) == '0)
+          if ((selected_active_mask & ~execute_mask) == '0 &&
+              stack_depth_q[scheduler_warp] == 0)
             warp_valid_q[scheduler_warp] <= 1'b0;
+        end else begin
+          warp_pc_q[scheduler_warp] <= selected_pc + 1'b1;
         end
       end
 
@@ -403,13 +524,37 @@ module four_warp_core #(
   end
 
 `ifndef SYNTHESIS
+  for (genvar warp = 0; warp < WARPS; warp++) begin : gen_stack_properties
+    property p_stack_depth_in_range;
+      @(posedge clk) disable iff (rst || clear_i)
+        stack_depth_q[warp] <=
+          $clog2(SIMT_STACK_DEPTH+1)'(SIMT_STACK_DEPTH);
+    endproperty
+    assert property (p_stack_depth_in_range);
+
+    property p_stack_state_stable_without_selected_control;
+      @(posedge clk) disable iff (rst || clear_i)
+        !(issue_fire && scheduler_warp == WARP_ID_WIDTH'(warp) &&
+          (selected_opcode == OP_SSY || selected_opcode == OP_BRA ||
+           selected_opcode == OP_SYNC))
+        |=> $stable(stack_depth_q[warp]);
+    endproperty
+    assert property (p_stack_state_stable_without_selected_control);
+  end
+
+  property p_control_fault_suppresses_issue;
+    @(posedge clk) disable iff (rst || clear_i)
+      control_fault |-> !issue_fire;
+  endproperty
+  assert property (p_control_fault_suppresses_issue);
+
   always_comb begin
     if (issue_fire) begin
       assert (scheduler_grant[scheduler_warp]);
       assert (scoreboard_ready);
       assert (!alu_unsupported);
-      assert (branch_condition == '0 && memory_address == '0 &&
-              store_data == '0);
+      if (selected_opcode != OP_BRA) assert (branch_condition == '0);
+      assert (memory_address == '0 && store_data == '0);
     end
     assert (!source_ready[2]);
     if (completion_v) assert (selected_completion_source < 2);
@@ -417,4 +562,5 @@ module four_warp_core #(
     assert (!stale_cancel);
   end
 `endif
+  /* verilator lint_on WIDTHTRUNC */
 endmodule

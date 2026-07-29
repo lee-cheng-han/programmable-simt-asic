@@ -12,11 +12,11 @@ checkable architectural behavior.
 ## Current status
 
 ```text
-Release stage:  Divergence and reconvergence preparation
-Completed:      Four-warp round-robin execution with ALU/multiplier writeback
+Release stage:  Instruction-frontend and multi-warp model preparation
+Completed:      Consolidated core; nested/four-warp SIMT reconvergence
 Verified:       Python, C++, Verilator, architectural trace, and XSim components
-In progress:    SRAM feasibility and SIMT-stack architecture
-Next:           Branch masks, SSY/SYNC, redirects, and reconvergence
+In progress:    SRAM feasibility and buffered-fetch architecture
+Next:           Physically realizable instruction frontend
 Not started:    Memory system, DFT, physical implementation
 ```
 
@@ -97,8 +97,10 @@ scripts/                Reproducible regression entry points
 The baseline excludes external DDR, caches, virtual memory, coherence, floating
 point, packed application-specific operations, graphics units, Linux drivers,
 compiler backends, multiple clusters, multiple resident blocks, preemption,
-out-of-order issue, and dual issue. Generic SIMT extensions are considered only
-after tapeout verification closure.
+out-of-order issue, and dual issue. After integer ASIC closure, the core plan
+includes an optional eight-lane FP32 add/multiply pipeline with an independent
+reference model and renewed completion-fabric verification. Multi-cluster
+scheduling remains outside the planned extension.
 
 Physical results will state the exact PDK, libraries, SRAM views, tool versions,
 constraints, corners, switching activity, and limitations. Producing GDS with an

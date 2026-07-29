@@ -3,15 +3,22 @@ module tb_single_warp_lifecycle;
   logic clk=0,rst,clear,prog_valid,launch_valid;
   logic [5:0] prog_addr; logic [31:0] prog_data,launch_pc,fault_pc;
   logic launch_ready,running,done,fault,commit_valid;
+  logic [2:0] launch_warp_count;
+  /* verilator lint_off UNUSEDSIGNAL */
+  logic [63:0] cycle_count,issue_count,commit_count;
+  /* verilator lint_on UNUSEDSIGNAL */
   fault_code_t fault_code; completion_record_t commit;
   int unsigned commits, mul_commits;
   always #5 clk<=~clk;
-  single_warp_core dut(.clk(clk),.rst(rst),.clear_i(clear),.*,
+  simt_core dut(.clk(clk),.rst(rst),.clear_i(clear),.*,
     .prog_valid_i(prog_valid),.prog_addr_i(prog_addr),.prog_data_i(prog_data),
     .launch_valid_i(launch_valid),.launch_ready_o(launch_ready),
     .launch_pc_i(launch_pc),.running_o(running),.done_o(done),.fault_o(fault),
+    .launch_warp_count_i(launch_warp_count),
     .fault_pc_o(fault_pc),.fault_code_o(fault_code),
-    .commit_valid_o(commit_valid),.commit_o(commit));
+    .commit_valid_o(commit_valid),.commit_o(commit),
+    .cycle_count_o(cycle_count),.issue_count_o(issue_count),
+    .commit_count_o(commit_count));
   task automatic pulse_clear; @(negedge clk); clear=1; @(posedge clk); #1; clear=0; endtask
   task automatic program_word(input logic[5:0]a,input logic[31:0]d);
     @(negedge clk); prog_addr=a;prog_data=d;prog_valid=1;@(posedge clk);#1;prog_valid=0; endtask
@@ -22,7 +29,8 @@ module tb_single_warp_lifecycle;
       if(fault_code!=expected||fault_pc!=pc)$fatal(1,"fault mismatch code=%0d pc=%0d",fault_code,fault_pc);
       return;end end $fatal(1,"fault timeout"); endtask
   initial begin
-    rst=1;clear=0;prog_valid=0;prog_addr=0;prog_data=0;launch_valid=0;launch_pc=0;commits=0;
+    rst=1;clear=0;prog_valid=0;prog_addr=0;prog_data=0;launch_valid=0;launch_pc=0;
+    launch_warp_count=1;commits=0;
     repeat(2)@(posedge clk);@(negedge clk);rst=0;
     // Lane IDs 0..3 exit first; lanes 4..7 execute MOVI before the final EXIT.
     program_word(0,32'h74040003); program_word(1,32'h38080004);

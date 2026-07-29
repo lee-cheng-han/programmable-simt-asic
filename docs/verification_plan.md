@@ -98,6 +98,15 @@ dependency-heavy arithmetic baseline records 0.428 IPC for one warp and 0.827
 IPC for four warps. The checked-in result and interpretation are in
 `docs/performance_results.md`.
 
+The divergence integration test executes the canonical `SSY`, guarded `BRA`,
+uniform redirect, and two-arrival `SYNC` sequence. It checks low-lane taken-path
+and high-lane deferred-path masks, final per-lane values, ordered sequence tags,
+full drainage, empty-stack underflow, and ninth-push overflow. It also executes
+a depth-two nested split and four simultaneously diverging resident warps. The
+canonical 11-event RTL trace agrees with the independent emulator. Stack-depth,
+state-stability, and fault-suppression assertions run in both simulators;
+bounded-engine proofs remain assigned to the pre-memory verification gate.
+
 The single-warp integration test programs instruction memory and executes two
 independent immediate writes, a RAW-dependent add, a predicate comparison, a
 predicate-dependent guarded add, and lane-level `EXIT`. It checks six ordered,

@@ -52,6 +52,12 @@ configuration. External DDR, caches, virtual memory, multiple clusters, multiple
 resident blocks, floating point, dual issue, and out-of-order warp issue are not
 part of the baseline.
 
+The architecture reserves unused opcode values and completion class `2'b11` for
+a post-baseline FP32 execution extension. That extension is limited initially to
+eight-lane FP32 add and multiply using existing 32-bit GPR storage. It must freeze
+rounding, special-value, subnormal, and exception-status behavior before changing
+the ISA or RTL. No baseline block may depend on the extension being present.
+
 ## Architectural state and execution order
 
 Each warp shares a PC, decoded instruction, active mask, GPR and predicate
@@ -161,6 +167,11 @@ rate, longer response latency, or non-backpressurable source requires a new proo
 
 Assertions cover occupancy, overwrite prevention, source rate, response latency,
 payload stability, and exactly-once commit or explicit cancellation.
+
+Completion class `2'b11` remains reserved during the baseline for the planned
+FP32 pipeline. Enabling it creates a four-source arbiter and requires a new
+fairness bound, collision test, queue-depth proof, and completion conservation
+evidence.
 
 ## Shared writeback arbitration
 

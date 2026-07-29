@@ -113,7 +113,7 @@ verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
 build/verilator/completion_arbiter/Vtb_completion_arbiter
 
 mkdir -p build/verilator/single_warp_core
-verilator --binary --timing --assert --Wall \
+verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
   --Mdir build/verilator/single_warp_core --top-module tb_single_warp_core \
   build/simt_isa_pkg.sv rtl/simt_gpu_pkg.sv \
   rtl/frontend/instruction_memory.sv rtl/frontend/instruction_fetch.sv \
@@ -126,7 +126,7 @@ verilator --binary --timing --assert --Wall \
   rtl/execute/architectural_writeback.sv \
   rtl/control/dependency_scoreboard.sv rtl/control/round_robin_arbiter.sv \
   rtl/control/fatal_fault_controller.sv \
-  rtl/core/single_warp_core.sv \
+  rtl/core/simt_core.sv \
   tb/integration/tb_single_warp_core.sv
 build/verilator/single_warp_core/Vtb_single_warp_core
 python3 tools/assembler/assembler.py tb/programs/single_warp_integer.s \
@@ -137,7 +137,7 @@ python3 scripts/compare_arch_traces.py \
   build/emulator_single_warp.trace build/rtl_single_warp.trace
 
 mkdir -p build/verilator/single_warp_lifecycle
-verilator --binary --timing --assert --Wall \
+verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
   --Mdir build/verilator/single_warp_lifecycle --top-module tb_single_warp_lifecycle \
   build/simt_isa_pkg.sv rtl/simt_gpu_pkg.sv \
   rtl/frontend/instruction_memory.sv rtl/frontend/instruction_fetch.sv \
@@ -148,7 +148,7 @@ verilator --binary --timing --assert --Wall \
   rtl/execute/completion_arbiter.sv rtl/execute/architectural_writeback.sv \
   rtl/control/dependency_scoreboard.sv rtl/control/round_robin_arbiter.sv \
   rtl/control/fatal_fault_controller.sv \
-  rtl/core/single_warp_core.sv tb/integration/tb_single_warp_lifecycle.sv
+  rtl/core/simt_core.sv tb/integration/tb_single_warp_lifecycle.sv
 build/verilator/single_warp_lifecycle/Vtb_single_warp_lifecycle
 
 mkdir -p build/verilator/four_warp_core
@@ -162,5 +162,26 @@ verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
   rtl/control/round_robin_arbiter.sv rtl/execute/completion_arbiter.sv \
   rtl/execute/architectural_writeback.sv \
   rtl/control/dependency_scoreboard.sv rtl/control/fatal_fault_controller.sv \
-  rtl/core/four_warp_core.sv tb/integration/tb_four_warp_core.sv
+  rtl/core/simt_core.sv tb/integration/tb_four_warp_core.sv
 build/verilator/four_warp_core/Vtb_four_warp_core
+
+mkdir -p build/verilator/four_warp_divergence
+verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
+  --Mdir build/verilator/four_warp_divergence \
+  --top-module tb_four_warp_divergence \
+  build/simt_isa_pkg.sv rtl/simt_gpu_pkg.sv \
+  rtl/frontend/instruction_decoder.sv rtl/register_file/vector_register_file.sv \
+  rtl/register_file/predicate_register_file.sv rtl/execute/integer_lane.sv \
+  rtl/execute/vector_integer_alu.sv rtl/execute/completion_queue.sv \
+  rtl/execute/alu_completion_stage.sv rtl/execute/vector_multiplier_pipeline.sv \
+  rtl/control/round_robin_arbiter.sv rtl/execute/completion_arbiter.sv \
+  rtl/execute/architectural_writeback.sv \
+  rtl/control/dependency_scoreboard.sv rtl/control/fatal_fault_controller.sv \
+  rtl/core/simt_core.sv tb/integration/tb_four_warp_divergence.sv
+build/verilator/four_warp_divergence/Vtb_four_warp_divergence
+python3 tools/assembler/assembler.py tb/programs/divergence.s \
+  -o build/divergence.bin
+build/simt-emulator build/divergence.bin \
+  --dump build/divergence.state --trace build/emulator_divergence.trace
+python3 scripts/compare_arch_traces.py \
+  build/emulator_divergence.trace build/rtl_divergence.trace

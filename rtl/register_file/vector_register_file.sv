@@ -36,9 +36,9 @@ module vector_register_file #(
   logic [ADDR_W-1:0] write_addr;
 
   always_comb begin
-    read_addr_a = ADDR_W'(read_warp_i * REGS + read_ra_i);
-    read_addr_b = ADDR_W'(read_warp_i * REGS + read_rb_i);
-    write_addr  = ADDR_W'(write_warp_i * REGS + write_reg_i);
+    read_addr_a = ADDR_W'(int'(read_warp_i) * REGS + int'(read_ra_i));
+    read_addr_b = ADDR_W'(int'(read_warp_i) * REGS + int'(read_rb_i));
+    write_addr  = ADDR_W'(int'(write_warp_i) * REGS + int'(write_reg_i));
 
     read_a_o = '0;
     read_b_o = '0;

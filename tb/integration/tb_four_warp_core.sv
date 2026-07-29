@@ -19,7 +19,7 @@ module tb_four_warp_core;
   always #5 clk = ~clk;
   /* verilator lint_on BLKSEQ */
 
-  four_warp_core dut (
+  simt_core dut (
     .clk(clk), .rst(rst), .clear_i(clear),
     .prog_valid_i(prog_valid), .prog_addr_i(prog_addr),
     .prog_data_i(prog_data), .launch_valid_i(launch_valid),

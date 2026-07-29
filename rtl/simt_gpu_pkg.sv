@@ -39,7 +39,10 @@ package simt_gpu_pkg;
     FAULT_IMEM_WRITE_WHILE_BUSY = 4'd1,
     FAULT_FETCH_PC_RANGE        = 4'd2,
     FAULT_ILLEGAL_INSTRUCTION   = 4'd3,
-    FAULT_UNSUPPORTED_STAGE     = 4'd4
+    FAULT_UNSUPPORTED_STAGE     = 4'd4,
+    FAULT_SIMT_STACK_OVERFLOW   = 4'd5,
+    FAULT_SIMT_STACK_UNDERFLOW  = 4'd6,
+    FAULT_SIMT_CONTROL          = 4'd7
   } fault_code_t;
 
   typedef struct packed {
