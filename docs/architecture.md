@@ -80,6 +80,22 @@ operation-level status metadata. Fatal faults never travel through these records
 or wait for completion arbitration. Valid payloads remain stable under backpressure. Reset, host
 clear, fatal fault, and stale-epoch rejection are explicit cancellation causes.
 
+## Instruction frontend
+
+The core uses one shared instruction-memory read port rather than one read port
+per warp. Round-robin fetch arbitration selects an active warp whose instruction
+buffer is empty and which has no response in flight. Each warp owns one buffered
+record containing its architectural PC and instruction word. Only a valid record
+whose PC still matches the warp PC may become scheduler-eligible.
+
+The behavioral storage implements the timing contract expected of a synchronous
+single-port SRAM: one request is accepted per cycle and its tagged response fills
+the selected warp buffer after the memory read. Issue consumes exactly one
+buffered record. A PC change makes any older response stale; stale responses are
+discarded by comparing both warp ID and PC. Clear and fatal fault invalidate all
+buffered and in-flight frontend work. Program writes are accepted only while the
+core is idle.
+
 ## ISA and predication
 
 `isa/isa.json` is the single machine-readable ISA source for Python tools,

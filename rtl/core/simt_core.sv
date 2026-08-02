@@ -26,7 +26,6 @@ module simt_core #(
   import simt_gpu_pkg::*;
   import simt_isa_pkg::*;
 
-  logic [31:0] imem [IMEM_WORDS];
   logic [WARPS-1:0] warp_valid_q;
   logic [WARPS-1:0][31:0] warp_pc_q;
   logic [WARPS-1:0][INSTRUCTION_SEQUENCE_WIDTH-1:0] warp_sequence_q;
@@ -43,6 +42,11 @@ module simt_core #(
   logic launched_q, done_q;
 
   logic [WARPS-1:0][31:0] warp_instruction;
+  logic [WARPS-1:0][31:0] fetch_buffer_pc;
+  logic [WARPS-1:0] fetch_buffer_valid;
+  logic fetch_request_valid;
+  logic [WARP_ID_WIDTH-1:0] fetch_request_warp;
+  logic [IMEM_ADDR_W-1:0] fetch_request_addr;
   logic [WARPS-1:0] legal, pred_enable, pred_invert, guard_exec;
   opcode_t opcode [WARPS];
   logic [WARPS-1:0][1:0] pred_index;
@@ -108,12 +112,32 @@ module simt_core #(
   logic [31:0] selected_fault_pc;
   logic [4:0] simultaneous_causes;
 
+  warp_instruction_frontend #(
+    .IMEM_WORDS(IMEM_WORDS),
+    .IMEM_ADDR_W(IMEM_ADDR_W),
+    .WARPS(WARPS),
+    .WARP_ID_W(WARP_ID_WIDTH)
+  ) frontend_u (
+    .clk(clk),
+    .rst(rst),
+    .clear_i(clear_i),
+    .flush_i(fatal_now),
+    .prog_valid_i(prog_valid_i && !launched_q),
+    .prog_addr_i(prog_addr_i),
+    .prog_data_i(prog_data_i),
+    .warp_active_i(warp_valid_q),
+    .warp_pc_i(warp_pc_q),
+    .consume_valid_i(issue_fire),
+    .consume_warp_i(scheduler_warp),
+    .buffer_valid_o(fetch_buffer_valid),
+    .buffer_pc_o(fetch_buffer_pc),
+    .buffer_instruction_o(warp_instruction),
+    .request_valid_o(fetch_request_valid),
+    .request_warp_o(fetch_request_warp),
+    .request_addr_o(fetch_request_addr)
+  );
+
   for (genvar warp = 0; warp < WARPS; warp++) begin : gen_decode
-    always_comb begin
-      warp_instruction[warp] = '0;
-      if (warp_pc_q[warp] < IMEM_WORDS)
-        warp_instruction[warp] = imem[IMEM_ADDR_W'(warp_pc_q[warp])];
-    end
     instruction_decoder decoder_u (
       .instr_i(warp_instruction[warp]), .legal_o(legal[warp]),
       .opcode_o(opcode[warp]), .pred_enable_o(pred_enable[warp]),
@@ -136,7 +160,8 @@ module simt_core #(
       if (pred_enable[warp])
         warp_pred_sources[warp][pred_index[warp]] = 1'b1;
       scheduler_request[warp] =
-        warp_valid_q[warp] && warp_pc_q[warp] < IMEM_WORDS &&
+        warp_valid_q[warp] && fetch_buffer_valid[warp] &&
+        fetch_buffer_pc[warp] == warp_pc_q[warp] &&
         supported[warp] &&
         !(|(gpr_pending[warp] & warp_gpr_sources[warp])) &&
         !(writes_gpr[warp] && gpr_pending[warp][rd[warp]]) &&
@@ -146,7 +171,7 @@ module simt_core #(
   end
 
   round_robin_arbiter #(.REQUESTERS(WARPS)) scheduler_u (
-    .clk(clk), .rst(rst), .clear_i(clear_i),
+    .clk(clk), .rst(rst), .clear_i(clear_i || fatal_now),
     .request_i(scheduler_request), .grant_valid_o(scheduler_valid),
     .grant_index_o(scheduler_warp), .grant_onehot_o(scheduler_grant),
     .grant_accept_i(issue_fire));
@@ -342,7 +367,8 @@ module simt_core #(
     end
     if (!fetch_range_fault) begin
       for (int unsigned warp = 0; warp < WARPS; warp++) begin
-        if (!illegal_fault && warp_valid_q[warp] && !legal[warp]) begin
+        if (!illegal_fault && warp_valid_q[warp] &&
+            fetch_buffer_valid[warp] && !legal[warp]) begin
           illegal_fault = 1'b1;
           selected_fault_pc = warp_pc_q[warp];
         end
@@ -350,8 +376,8 @@ module simt_core #(
     end
     if (!fetch_range_fault && !illegal_fault) begin
       for (int unsigned warp = 0; warp < WARPS; warp++) begin
-        if (!unsupported_fault && warp_valid_q[warp] && legal[warp] &&
-            !supported[warp]) begin
+        if (!unsupported_fault && warp_valid_q[warp] &&
+            fetch_buffer_valid[warp] && legal[warp] && !supported[warp]) begin
           unsupported_fault = 1'b1;
           selected_fault_pc = warp_pc_q[warp];
         end
@@ -423,8 +449,6 @@ module simt_core #(
       issue_count_o <= '0;
       commit_count_o <= '0;
     end else begin
-      if (prog_valid_i && !launched_q)
-        imem[prog_addr_i] <= prog_data_i;
       if (launch_valid_i && launch_ready_o) begin
         for (int unsigned warp = 0; warp < WARPS; warp++) begin
           warp_valid_q[warp] <= warp < launch_warp_count_i;
@@ -557,6 +581,10 @@ module simt_core #(
       assert (memory_address == '0 && store_data == '0);
     end
     assert (!source_ready[2]);
+    if (fetch_request_valid) begin
+      assert (32'(fetch_request_warp) < 32'(WARPS));
+      assert (32'(fetch_request_addr) < 32'(IMEM_WORDS));
+    end
     if (completion_v) assert (selected_completion_source < 2);
     if (fault_valid) assert (simultaneous_causes != 0);
     assert (!stale_cancel);

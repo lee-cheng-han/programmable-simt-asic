@@ -21,11 +21,13 @@ The `tb_four_warp_core` result is:
 
 | Resident warps | Instructions | Cycles | IPC |
 |---:|---:|---:|---:|
-| 1 | 6 | 14 | 0.428 |
-| 4 | 24 | 29 | 0.827 |
+| 1 | 6 | 22 | 0.272 |
+| 4 | 24 | 32 | 0.750 |
 
-Four resident warps improve IPC by approximately 1.93× for this dependency-heavy
-stream. The result demonstrates that round-robin interleaving fills otherwise
-idle issue opportunities while another warp waits for dependent writeback. It
-does not claim a 1.93× speedup for one fixed-size kernel: the four-warp run
+Four resident warps improve IPC by approximately 2.76× for this dependency-heavy
+stream. These measurements include the shared single-port, buffered instruction
+frontend rather than the earlier four-way combinational lookup. The result
+demonstrates that round-robin interleaving fills otherwise idle issue and fetch
+opportunities while another warp waits for dependent writeback. It does not
+claim a 2.76× speedup for one fixed-size kernel: the four-warp run
 performs four times as much work and measures throughput scaling.

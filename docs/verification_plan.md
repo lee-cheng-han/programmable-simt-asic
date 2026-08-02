@@ -52,6 +52,13 @@ execution, sequential and launch-time range faults, sticky fault reporting,
 software clear, restart, and halt. An assertion rejects ambiguous simultaneous
 programming and fetching of the same instruction word.
 
+The integrated warp-frontend test checks that a single round-robin memory port
+fills all four per-warp instruction buffers, buffered records remain stable
+during prolonged issue stalls, a consumed warp refills at its new PC, a PC
+redirect cannot install an older response, and fatal/clear-style flushes discard
+both buffered and in-flight work. Assertions enforce one-hot requested service,
+active/in-range requests, and buffer-to-architectural-PC coherence.
+
 The writeback test covers buffered backpressure, complete payload stability,
 GPR-only and predicate-only commits, lane-mask preservation, simultaneous
 drain/refill, flush cancellation, and empty-mask suppression. Assertions ensure
@@ -94,8 +101,8 @@ The four-warp integration test launches one and four resident warps through the
 same instruction stream. It checks independent PC, active-mask, sequence,
 register, and scoreboard state; `S2R WID`; all 24 ordered per-warp commits;
 round-robin progress; multiplier tags; counters; and full-machine drainage. Its
-dependency-heavy arithmetic baseline records 0.428 IPC for one warp and 0.827
-IPC for four warps. The checked-in result and interpretation are in
+dependency-heavy arithmetic baseline records 0.272 IPC for one warp and 0.750
+IPC for four warps with the shared buffered instruction port. The checked-in result and interpretation are in
 `docs/performance_results.md`.
 
 The divergence integration test executes the canonical `SSY`, guarded `BRA`,

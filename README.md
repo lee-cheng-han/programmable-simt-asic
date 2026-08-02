@@ -12,11 +12,11 @@ checkable architectural behavior.
 ## Current status
 
 ```text
-Release stage:  Instruction-frontend and multi-warp model preparation
-Completed:      Consolidated core; nested/four-warp SIMT reconvergence
+Release stage:  Multi-warp model and pre-memory stabilization
+Completed:      Consolidated core; reconvergence; shared buffered frontend
 Verified:       Python, C++, Verilator, architectural trace, and XSim components
-In progress:    SRAM feasibility and buffered-fetch architecture
-Next:           Physically realizable instruction frontend
+In progress:    SRAM selection and four-warp differential model
+Next:           Multi-warp reference traces and early implementation checkpoint
 Not started:    Memory system, DFT, physical implementation
 ```
 

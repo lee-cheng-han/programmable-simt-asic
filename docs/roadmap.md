@@ -12,7 +12,7 @@ memory contracts freeze.
 | Order | Release group | Current state | Required before shared memory |
 |---:|---|---|---|
 | 1 | Processor architecture foundation | Complete except SRAM feasibility: consolidated core, four-warp execution, nested reconvergence, fatal bounds, and emulator trace agreement pass | Select usable SRAM views and preserve the single authoritative core |
-| 2 | Frontend and model stabilization | Not started | SRAM-compatible buffered fetch, four-warp reference model, differential traces, synthesis, reset review, and trial floorplan |
+| 2 | Frontend and model stabilization | In progress: shared single-port buffered fetch is integrated and verified | Select/qualify SRAM, add four-warp reference traces, synthesis, reset review, and trial floorplan |
 | 3 | Pre-memory verification | Not started | Backpressure stress, bounded proofs, mutation testing, and reproducible reports |
 | 4 | Memory system | Blocked by groups above | Begin shared memory, barriers, and scratchpad only after stabilization closes |
 
@@ -103,6 +103,13 @@ and fetch backpressure cannot lose, duplicate, or issue a wrong-path instruction
 Exit requires a qualified SRAM-compatible port/timing contract, directed buffer
 fill/drain/redirect tests, randomized fetch stalls, clean synthesis, and no
 combinational architectural dependency on four instruction-memory read ports.
+
+Current evidence: the authoritative core now uses one shared read request per
+cycle, round-robin request arbitration, one stable instruction buffer per warp,
+and tagged stale-response rejection. Directed tests cover all buffer fills,
+prolonged issue stalls, consume/refill, redirect, and flush, and every processor
+regression uses this frontend. Qualification against a selected SRAM macro,
+randomized fetch stalls, synthesis, and physical timing evidence remain open.
 
 ### Multi-warp reference model and differential traces
 

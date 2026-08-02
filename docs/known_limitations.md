@@ -8,10 +8,11 @@ simultaneous four-warp reconvergence, stack faults, drained completion, and
 one-warp emulator trace agreement.
 
 The C++ emulator remains an architectural one-warp model rather than a cycle-aware
-four-warp scheduling model. The integrated instruction storage currently exposes
-behavioral combinational lookups and must be replaced by a single-port,
-SRAM-compatible buffered frontend. General/shared memory trackers, bank replay,
-barriers, Wishbone, selected SRAM macros, DFT, bounded formal runs, and physical
+four-warp scheduling model. The core now uses one shared instruction port with
+round-robin arbitration, a tagged in-flight response, and one stable buffer per
+warp. Its storage array is still behavioral until a qualified open-PDK SRAM macro
+and all required physical/timing views are selected. General/shared memory
+trackers, bank replay, barriers, Wishbone, DFT, bounded formal runs, and physical
 implementation are not yet integrated.
 
 The current performance numbers are RTL cycle measurements for a small arithmetic
