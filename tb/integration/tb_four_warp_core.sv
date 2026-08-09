@@ -14,6 +14,7 @@ module tb_four_warp_core;
   int unsigned expected_sequence [WARPS];
   int unsigned observed_commits [WARPS];
   logic [63:0] one_warp_cycles, four_warp_cycles;
+  integer trace_file;
 
   /* verilator lint_off BLKSEQ */
   always #5 clk = ~clk;
@@ -93,6 +94,18 @@ module tb_four_warp_core;
     endcase
     expected_sequence[warp]++;
     observed_commits[warp]++;
+    if (launched_warps == WARPS) begin
+      $fwrite(trace_file,
+              "C %0d %0d %08x %08x %02x %02x %0d %0d %02x",
+              commit.warp_id, commit.sequence_number, commit.pc,
+              commit.instruction, commit.active_mask, commit.write_mask,
+              commit.writes_gpr, commit.gpr_dst, commit.gpr_mask);
+      for (int lane = 0; lane < LANES; lane++)
+        $fwrite(trace_file, " %08x", commit.gpr_data[lane]);
+      $fwrite(trace_file, " %0d %0d %02x %02x\n",
+              commit.writes_pred, commit.pred_dst,
+              commit.pred_mask, commit.pred_data);
+    end
   endtask
 
   task automatic run_kernel(input int unsigned warps,
@@ -129,6 +142,7 @@ module tb_four_warp_core;
     launch_valid = 0;
     launch_pc = 0;
     launch_warp_count = 0;
+    trace_file = $fopen("build/rtl_four_warp.trace", "w");
     repeat (2) @(posedge clk);
     @(negedge clk);
     rst = 0;
@@ -151,6 +165,7 @@ module tb_four_warp_core;
     $display("PASS tb_four_warp_core one_cycles=%0d four_cycles=%0d one_ipc_x1000=%0d four_ipc_x1000=%0d",
              one_warp_cycles, four_warp_cycles,
              6000 / one_warp_cycles, 24000 / four_warp_cycles);
+    $fclose(trace_file);
     $finish;
   end
 endmodule

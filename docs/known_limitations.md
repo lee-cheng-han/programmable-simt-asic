@@ -7,8 +7,12 @@ depth-eight `SSY`/`BRA`/`SYNC` divergence stacks. Directed tests cover nested an
 simultaneous four-warp reconvergence, stack faults, drained completion, and
 one-warp emulator trace agreement.
 
-The C++ emulator remains an architectural one-warp model rather than a cycle-aware
-four-warp scheduling model. The core now uses one shared instruction port with
+The original C++ emulator remains the memory-capable single-warp architectural
+model. A separate four-warp model now covers independent warp state,
+round-robin issue, GPR dependency stalls, three-cycle multiplier completion,
+SIMT stacks, and warp/sequence-keyed arithmetic and divergence traces. It does
+not yet model completion-queue arbitration, epoch clear/relaunch, multi-warp
+memory ordering, or barriers. The core uses one shared instruction port with
 round-robin arbitration, a tagged in-flight response, and one stable buffer per
 warp. Its storage array is still behavioral until a qualified open-PDK SRAM macro
 and all required physical/timing views are selected. General/shared memory

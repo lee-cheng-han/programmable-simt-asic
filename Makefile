@@ -13,8 +13,8 @@ $(BUILD):
 $(BUILD)/isa_generated.hpp: isa/isa.json tools/gen_isa_header.py | $(BUILD)
 	$(PYTHON) tools/gen_isa_header.py $< $@
 
-$(BUILD)/simt-emulator: model/emulator/main.cpp model/include/emulator.hpp model/emulator/emulator.cpp $(BUILD)/isa_generated.hpp
-	$(CXX) $(CXXFLAGS) -I$(BUILD) -Imodel/include model/emulator/main.cpp model/emulator/emulator.cpp -o $@
+$(BUILD)/simt-emulator: model/emulator/main.cpp model/include/emulator.hpp model/emulator/emulator.cpp model/include/multi_warp_emulator.hpp model/emulator/multi_warp_emulator.cpp $(BUILD)/isa_generated.hpp
+	$(CXX) $(CXXFLAGS) -I$(BUILD) -Imodel/include model/emulator/main.cpp model/emulator/emulator.cpp model/emulator/multi_warp_emulator.cpp -o $@
 
 python-test:
 	$(PYTHON) -m unittest discover -s tools/tests -v

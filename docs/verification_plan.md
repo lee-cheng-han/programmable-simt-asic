@@ -105,6 +105,16 @@ dependency-heavy arithmetic baseline records 0.272 IPC for one warp and 0.750
 IPC for four warps with the shared buffered instruction port. The checked-in result and interpretation are in
 `docs/performance_results.md`.
 
+The independent four-warp C++ model maintains a PC, active mask, GPRs,
+predicates, dependency state, sequence counter, and depth-eight SIMT stack for
+each resident warp. It selects eligible warps round-robin and delays multiplier
+results by three model cycles. RTL and model emit canonical commit records keyed
+by warp and sequence; the comparator rejects duplicate keys and reports the
+first field-level mismatch after key ordering. The arithmetic comparison covers
+24 events and the simultaneous divergence comparison covers 44 events. Epoch
+clear/relaunch, completion arbitration, memory, barriers, and randomized control
+flow remain assigned to the rest of the pre-memory stabilization gate.
+
 The divergence integration test executes the canonical `SSY`, guarded `BRA`,
 uniform redirect, and two-arrival `SYNC` sequence. It checks low-lane taken-path
 and high-lane deferred-path masks, final per-lane values, ordered sequence tags,

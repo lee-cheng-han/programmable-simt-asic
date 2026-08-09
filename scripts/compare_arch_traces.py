@@ -1,10 +1,24 @@
 #!/usr/bin/env python3
-import pathlib, sys
+import argparse, pathlib
 def main():
-    if len(sys.argv)!=3: raise SystemExit("usage: compare_arch_traces.py EXPECTED ACTUAL")
-    a=pathlib.Path(sys.argv[1]).read_text().splitlines(); b=pathlib.Path(sys.argv[2]).read_text().splitlines()
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--keyed",action="store_true")
+    parser.add_argument("expected")
+    parser.add_argument("actual")
+    args=parser.parse_args()
+    a=pathlib.Path(args.expected).read_text().splitlines(); b=pathlib.Path(args.actual).read_text().splitlines()
+    if args.keyed:
+        def key(line):
+            fields=line.split()
+            if len(fields)<3 or fields[0]!="C":
+                raise SystemExit(f"invalid keyed trace line: {line}")
+            return int(fields[1]),int(fields[2])
+        if len({key(line) for line in a})!=len(a) or len({key(line) for line in b})!=len(b):
+            raise SystemExit("duplicate warp/sequence key in architectural trace")
+        a=sorted(a,key=key); b=sorted(b,key=key)
     for i,(x,y) in enumerate(zip(a,b),1):
         if x!=y: raise SystemExit(f"first architectural mismatch at trace line {i}\nexpected: {x}\nactual:   {y}")
     if len(a)!=len(b): raise SystemExit(f"trace length mismatch expected={len(a)} actual={len(b)}")
-    print(f"PASS architectural trace comparison events={len(a)//3}")
+    events=len(a) if args.keyed else len(a)//3
+    print(f"PASS architectural trace comparison events={events}")
 if __name__=="__main__": main()

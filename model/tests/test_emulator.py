@@ -38,4 +38,36 @@ class EmulatorTests(unittest.TestCase):
   s,o=self.run_program('stack_underflow.s',ok=False);self.assertIn('fault=6',o);self.assertIn('PC 0',s)
  def test_stack_overflow_fault(self):
   s,o=self.run_program('stack_overflow.s',ok=False);self.assertIn('fault=5',o);self.assertIn('PC 8',s)
+ def run_multiwarp(self,name):
+  import struct
+  with tempfile.TemporaryDirectory() as d:
+   b=pathlib.Path(d)/'p.bin'; trace=pathlib.Path(d)/'trace.txt'
+   ws=assemble((ROOT/'tb/programs'/name).read_text(),name)
+   b.write_bytes(struct.pack('<%dI'%len(ws),*ws))
+   r=subprocess.run([str(ROOT/'build/simt-emulator'),str(b),'--warps','4',
+                     '--trace',str(trace)],text=True,capture_output=True)
+   self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+   events=[line.split() for line in trace.read_text().splitlines()]
+   self.assertTrue(all(event[0]=='C' for event in events))
+   keys=[(int(event[1]),int(event[2])) for event in events]
+   self.assertEqual(len(keys),len(set(keys)))
+   return events,r.stdout
+ def test_four_warp_arithmetic_trace(self):
+  events,output=self.run_multiwarp('four_warp_arithmetic.s')
+  self.assertEqual(len(events),24)
+  self.assertIn('issues=24 commits=24 warps=4 fault=0',output)
+  for warp in range(4):
+   warp_events=[event for event in events if int(event[1])==warp]
+   self.assertEqual([int(event[2]) for event in warp_events],list(range(6)))
+   self.assertTrue(all(int(value,16)==warp for value in warp_events[0][10:18]))
+ def test_four_warp_divergence_trace(self):
+  events,output=self.run_multiwarp('divergence.s')
+  self.assertEqual(len(events),44)
+  self.assertIn('issues=44 commits=44 warps=4 fault=0',output)
+  for warp in range(4):
+   warp_events=[event for event in events if int(event[1])==warp]
+   self.assertEqual([int(event[2]) for event in warp_events],list(range(11)))
+   masks={int(event[3],16):int(event[9],16) for event in warp_events}
+   self.assertEqual(masks[7],0x0f)
+   self.assertEqual(masks[5],0xf0)
 if __name__=='__main__':unittest.main()

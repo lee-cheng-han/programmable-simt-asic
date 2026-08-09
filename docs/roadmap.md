@@ -12,7 +12,7 @@ memory contracts freeze.
 | Order | Release group | Current state | Required before shared memory |
 |---:|---|---|---|
 | 1 | Processor architecture foundation | Complete except SRAM feasibility: consolidated core, four-warp execution, nested reconvergence, fatal bounds, and emulator trace agreement pass | Select usable SRAM views and preserve the single authoritative core |
-| 2 | Frontend and model stabilization | In progress: shared single-port buffered fetch is integrated and verified | Select/qualify SRAM, add four-warp reference traces, synthesis, reset review, and trial floorplan |
+| 2 | Frontend and model stabilization | In progress: buffered fetch plus four-warp arithmetic/divergence reference traces pass | Select/qualify SRAM, close lifecycle/random traces, synthesis, reset review, and trial floorplan |
 | 3 | Pre-memory verification | Not started | Backpressure stress, bounded proofs, mutation testing, and reproducible reports |
 | 4 | Memory system | Blocked by groups above | Begin shared memory, barriers, and scratchpad only after stabilization closes |
 
@@ -124,6 +124,14 @@ Exit requires first-mismatch comparison for arithmetic, predication, multiplier,
 uniform and divergent branches, nested reconvergence, clear/relaunch, and fatal
 stack faults. At least one reproducible randomized structured-control regression
 must pass across multiple seeds.
+
+Current evidence: an independent four-warp C++ model owns per-warp PC, mask,
+register, predicate, sequence, dependency, multiplier-latency, and SIMT-stack
+state with round-robin issue. Keyed first-mismatch comparison passes 24
+arithmetic events and 44 simultaneous-divergence events against RTL. Predication
+is exercised inside divergence, including taken/deferred masks. Explicit
+clear/relaunch, epoch cancellation, fatal-stack differential records, completion
+arbitration timing, and multi-seed structured-control generation remain open.
 
 ### Early implementation checkpoint
 

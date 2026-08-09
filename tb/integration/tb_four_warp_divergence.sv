@@ -15,6 +15,7 @@ module tb_four_warp_divergence;
   lane_mask_t shadow_pred [PREDS_PER_THREAD];
   lane_mask_t shadow_active;
   integer trace_file;
+  integer multi_trace_file;
   word_t multi_r3 [WARPS][LANES];
   word_t nested_r4 [LANES];
   int unsigned commits, multi_sequence [WARPS], multi_commits, nested_commits;
@@ -119,6 +120,7 @@ module tb_four_warp_divergence;
 
     // All four warps independently split and reconverge at the same time.
     clear_core();multi_commits=0;
+    multi_trace_file=$fopen("build/rtl_four_warp_divergence.trace","w");
     for(int warp=0;warp<WARPS;warp++)begin
       multi_sequence[warp]=0;
       for(int lane=0;lane<LANES;lane++)multi_r3[warp][lane]=0;
@@ -135,9 +137,20 @@ module tb_four_warp_divergence;
           for(int lane=0;lane<LANES;lane++)
             if(commit.gpr_mask[lane])
               multi_r3[warp][lane]=commit.gpr_data[lane];
+        $fwrite(multi_trace_file,
+                "C %0d %0d %08x %08x %02x %02x %0d %0d %02x",
+                commit.warp_id,commit.sequence_number,commit.pc,
+                commit.instruction,commit.active_mask,commit.write_mask,
+                commit.writes_gpr,commit.gpr_dst,commit.gpr_mask);
+        for(int lane=0;lane<LANES;lane++)
+          $fwrite(multi_trace_file," %08x",commit.gpr_data[lane]);
+        $fwrite(multi_trace_file," %0d %0d %02x %02x\n",
+                commit.writes_pred,commit.pred_dst,
+                commit.pred_mask,commit.pred_data);
         multi_sequence[warp]++;multi_commits++;end
       if(done)break;end
     if(!done||multi_commits!=44)$fatal(1,"multi-warp commits=%0d",multi_commits);
+    $fclose(multi_trace_file);
     for(int warp=0;warp<WARPS;warp++)
       for(int lane=0;lane<LANES;lane++)
         if(multi_r3[warp][lane]!=(lane<4?5:9))

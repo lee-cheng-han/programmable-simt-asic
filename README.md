@@ -12,11 +12,11 @@ checkable architectural behavior.
 ## Current status
 
 ```text
-Release stage:  Multi-warp model and pre-memory stabilization
-Completed:      Consolidated core; reconvergence; shared buffered frontend
+Release stage:  Pre-memory stabilization and implementation checkpoint
+Completed:      Core; reconvergence; buffered frontend; four-warp reference traces
 Verified:       Python, C++, Verilator, architectural trace, and XSim components
-In progress:    SRAM selection and four-warp differential model
-Next:           Multi-warp reference traces and early implementation checkpoint
+In progress:    SRAM selection, extended model lifecycle, and early synthesis
+Next:           Backpressure/formal gate and early implementation checkpoint
 Not started:    Memory system, DFT, physical implementation
 ```
 
