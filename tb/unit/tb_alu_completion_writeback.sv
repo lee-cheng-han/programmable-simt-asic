@@ -68,6 +68,7 @@ module tb_alu_completion_writeback;
   );
 
   architectural_writeback writeback_u (
+    .clk(clk), .rst(rst),
     .fatal_i(fatal), .current_epoch_i(current_epoch),
     .completion_valid_i(completion_valid),
     .completion_ready_o(completion_ready), .completion_i(completion),

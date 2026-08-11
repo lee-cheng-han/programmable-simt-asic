@@ -135,8 +135,10 @@ The current implementation includes constrained-random legal integer/dependency
 programs, a clear/relaunch virtual sequence, deterministic test/seed selection,
 per-run artifacts, randomized execution-completion and writeback backpressure,
 stable-handshake assertions, and architectural opcode/warp/source/mask/stall
-coverage. The next increment expands structured-control and lifecycle/fault
-scenarios and begins merged coverage analysis. Random generation must favor
+coverage. Shallow and nested divergence/reconvergence now run with a selectable
+one-through-four resident warps, canonical lane ordering, and opcode-by-resident-
+warp coverage. The next increment expands lifecycle/fault scenarios and begins
+merged coverage analysis. Random generation must favor
 meaningful dependency, predication, scheduling, and
 structured-control scenarios rather than arbitrary words dominated by illegal
 encodings. Every run records the test name, simulator, seed, generated assembly

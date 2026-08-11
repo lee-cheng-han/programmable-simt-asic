@@ -7,7 +7,7 @@ fi
 if [ -n "${UVM_TEST:-}" ]; then
   tests=$UVM_TEST
 else
-  tests="constrained_random_differential_test backpressure_differential_test"
+  tests="constrained_random_differential_test backpressure_differential_test structured_control_differential_test"
 fi
 for test_name in $tests; do
   for seed in "$@"; do

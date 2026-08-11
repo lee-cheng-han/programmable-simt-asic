@@ -181,17 +181,19 @@ Two reproducible seeds pass for legal dependency programs and independent
 execution-completion/writeback backpressure, including 60- and 48-event random
 traces plus 24-event stalled traces. Stalled grants remain stable, an elastic
 writeback boundary decouples the ready domains, handshake assertions pass, and
-stall coverage is sampled. Expanded structured-control/lifecycle randomness,
-coverage analysis, bounded proofs, and mutation testing remain open.
+stall coverage is sampled. Shallow and nested structured-control programs also
+pass model comparison with one through four resident warps, including 19, 22,
+33, 38, and 44-event traces. Lifecycle/fault randomness, coverage analysis,
+bounded proofs, and mutation testing remain open.
 
 The class-based verification work proceeds through four explicit closure phases:
 
 1. **Environment foundation — complete.** Preserve the core agent, driver,
    monitor, scoreboard, directed sequence, canonical trace export, and
    independent-model differential test as a continuously passing smoke gate.
-2. **Random stimulus and observability — in progress.** Legal integer dependency
-   generation and independent completion/writeback stalls now pass differential
-   simulation. Add predication, structured-control, lifecycle, and fault
+2. **Random stimulus and observability — in progress.** Legal integer dependency,
+   structured-control, resident-warp variation, and independent completion/writeback
+   stalls now pass differential simulation. Add lifecycle and fault
    sequences; virtual sequences coordinating programming, launch, clear,
    recovery, and backpressure; functional coverage tied to architectural risk;
    and simulation assertions for the exercised protocols. Every failure must

@@ -4,6 +4,8 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 uvm_test="${UVM_TEST:-four_warp_differential_test}"
 seed="${SEED:-1}"
+warp_override="${WARP_COUNT:-0}"
+nested_override="${NESTED:-2}"
 run_dir="$repo_root/build/uvm/runs/${uvm_test}_${seed}"
 sim_dir="${TMPDIR:-/tmp}/simt_uvm_xsim/${uvm_test}_${seed}"
 
@@ -72,9 +74,11 @@ if [[ "${UVM_ELAB_ONLY:-0}" == 1 ]]; then
   exit 0
 fi
 
-rm -f "$repo_root/build/uvm_four_warp.trace"
+rm -f "$repo_root/build/uvm_four_warp.trace" "$repo_root/build/uvm/run.cfg"
 "$xsim_bin" tb_simt_core_uvm_sim --runall --onfinish quit \
   --testplusarg "UVM_TESTNAME=$uvm_test" --sv_seed "$seed" \
+  --testplusarg "WARP_COUNT=$warp_override" \
+  --testplusarg "NESTED=$nested_override" \
   --cov_db_dir "$repo_root/build/uvm/coverage" \
   --cov_db_name "${uvm_test}_${seed}" --log "$run_dir/xsim.log"
 
@@ -89,12 +93,22 @@ trace="$repo_root/build/uvm_four_warp.trace"
   exit 1
 }
 
+model_warps=4
+if [[ -f "$repo_root/build/uvm/run.cfg" ]]; then
+  read -r model_warps <"$repo_root/build/uvm/run.cfg"
+fi
+if [[ ! "$model_warps" =~ ^[1-4]$ ]]; then
+  echo "invalid generated warp count: $model_warps" >&2
+  exit 1
+fi
+
 python3 "$repo_root/tools/hex_words_to_bin.py" \
   "$repo_root/build/uvm/program.hex" "$repo_root/build/uvm/program.bin"
-"$repo_root/build/simt-emulator" "$repo_root/build/uvm/program.bin" --warps 4 \
+"$repo_root/build/simt-emulator" "$repo_root/build/uvm/program.bin" --warps "$model_warps" \
   --trace "$repo_root/build/uvm/model.trace"
 python3 "$repo_root/scripts/compare_arch_traces.py" --keyed \
   "$repo_root/build/uvm/model.trace" "$trace" >"$run_dir/comparison.txt"
 cp "$repo_root/build/uvm/program.hex" "$repo_root/build/uvm/program.bin" \
-  "$repo_root/build/uvm/model.trace" "$trace" "$run_dir/"
+  "$repo_root/build/uvm/model.trace" "$trace" "$repo_root/build/uvm/run.cfg" \
+  "$run_dir/"
 sed -n '1,20p' "$run_dir/comparison.txt"

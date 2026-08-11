@@ -15,8 +15,8 @@ checkable architectural behavior.
 Release stage:  Pre-memory stabilization and implementation checkpoint
 Completed:      Core; reconvergence; buffered frontend; four-warp reference traces
 Verified:       Python, C++, Verilator, XSim UVM, random differential traces, and backpressure
-In progress:    SRAM selection, lifecycle randomness, coverage analysis, and early synthesis
-Next:           Structured-control UVM, coverage closure, formal, and implementation checkpoint
+In progress:    SRAM selection, lifecycle/fault randomness, coverage analysis, and early synthesis
+Next:           Lifecycle recovery UVM, coverage closure, formal, and implementation checkpoint
 Not started:    Memory system, DFT, physical implementation
 ```
 

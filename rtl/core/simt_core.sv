@@ -367,7 +367,7 @@ module simt_core #(
     .completion_ready_i(writeback_completion_ready),
     .completion_o(writeback_completion), .occupancy_o(writeback_occupancy));
   architectural_writeback wb_u (
-    .fatal_i(fatal_now), .current_epoch_i(epoch_q),
+    .clk(clk), .rst(rst), .fatal_i(fatal_now), .current_epoch_i(epoch_q),
     .completion_valid_i(writeback_completion_v),
     .completion_ready_o(writeback_completion_ready),
     .completion_i(writeback_completion),

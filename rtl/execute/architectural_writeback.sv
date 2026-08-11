@@ -1,4 +1,6 @@
 module architectural_writeback (
+  input  logic                                            clk,
+  input  logic                                            rst,
   input  logic                                            fatal_i,
   input  logic [simt_gpu_pkg::KERNEL_EPOCH_WIDTH-1:0]     current_epoch_i,
 
@@ -72,19 +74,22 @@ module architectural_writeback (
   end
 
 `ifndef SYNTHESIS
-  always_comb begin
-    if (!$isunknown({fatal_i,commit_valid_o,gpr_write_valid_o,
-                     pred_write_valid_o,clear_gpr_valid_o,clear_pred_valid_o,
-                     stale_cancel_o})) begin
-      assert (!(fatal_i && (commit_valid_o || gpr_write_valid_o ||
-                            pred_write_valid_o || clear_gpr_valid_o ||
-                            clear_pred_valid_o)))
-        else $error("fatal priority failed to suppress architectural commit");
-      assert (!(stale_cancel_o && (commit_valid_o || gpr_write_valid_o ||
-                                   pred_write_valid_o || clear_gpr_valid_o ||
-                                   clear_pred_valid_o)))
-        else $error("stale completion produced an architectural side effect");
-    end
-  end
+  property p_fatal_suppresses_architectural_commit;
+    @(posedge clk) disable iff (rst)
+      fatal_i |-> !(commit_valid_o || gpr_write_valid_o ||
+                    pred_write_valid_o || clear_gpr_valid_o ||
+                    clear_pred_valid_o);
+  endproperty
+  assert property (p_fatal_suppresses_architectural_commit)
+    else $error("fatal priority failed to suppress architectural commit");
+
+  property p_stale_completion_has_no_side_effect;
+    @(posedge clk) disable iff (rst)
+      stale_cancel_o |-> !(commit_valid_o || gpr_write_valid_o ||
+                           pred_write_valid_o || clear_gpr_valid_o ||
+                           clear_pred_valid_o);
+  endproperty
+  assert property (p_stale_completion_has_no_side_effect)
+    else $error("stale completion produced an architectural side effect");
 `endif
 endmodule

@@ -28,5 +28,6 @@ commit path.
 The UVM 1.2 environment runs with XSim 2026.1 on the current host. Directed,
 legal constrained-random, and randomized execution/writeback-backpressure tests
 produce model-matched traces and retain per-seed coverage databases. Coverage
-database merging and numerical closure, randomized structured control and fault
-recovery, bounded proofs, and mutation results are not yet claimed.
+Structured shallow and nested control flow passes differential testing with one
+through four resident warps. Coverage database merging and numerical closure,
+randomized fault recovery, bounded proofs, and mutation results are not yet claimed.

@@ -21,6 +21,7 @@ package simt_core_uvm_pkg;
     string canonical;
     bit execute_stall_observed;
     bit writeback_stall_observed;
+    bit [2:0] resident_warps;
     function new(string name="commit_item"); super.new(name); endfunction
   endclass
 
@@ -34,7 +35,11 @@ package simt_core_uvm_pkg;
     task body();
       core_command item;
       int program_file=$fopen("build/uvm/program.hex","w");
+      int config_file=$fopen("build/uvm/run.cfg","w");
       if(!program_file) `uvm_fatal("PROGRAM","cannot write generated program")
+      if(!config_file) `uvm_fatal("PROGRAM","cannot write run configuration")
+      $fdisplay(config_file,"4");
+      $fclose(config_file);
       foreach (PROGRAM[index]) begin
         $fdisplay(program_file,"%08x",PROGRAM[index]);
         item=core_command::type_id::create($sformatf("program_%0d",index));
@@ -80,7 +85,11 @@ package simt_core_uvm_pkg;
       random_integer_instruction generated;
       core_command launch;
       int program_file=$fopen("build/uvm/program.hex","w");
+      int config_file=$fopen("build/uvm/run.cfg","w");
       if(!program_file) `uvm_fatal("PROGRAM","cannot write generated program")
+      if(!config_file) `uvm_fatal("PROGRAM","cannot write run configuration")
+      $fdisplay(config_file,"4");
+      $fclose(config_file);
       send_word(0,32'h38040007,program_file);
       send_word(1,32'h38080003,program_file);
       for(int unsigned index=0;index<body_length;index++)begin
@@ -96,6 +105,50 @@ package simt_core_uvm_pkg;
       launch=core_command::type_id::create("launch");
       start_item(launch);launch.command=CORE_LAUNCH;launch.warp_count=3'd4;
       launch.launch_pc='0;finish_item(launch);
+    endtask
+  endclass
+
+  class structured_control_sequence extends uvm_sequence #(core_command);
+    `uvm_object_utils(structured_control_sequence)
+    rand bit nested;
+    rand bit [2:0] warp_count;
+    int unsigned instruction_count;
+    constraint resident_warps {warp_count inside {[1:4]};}
+    localparam bit [31:0] SHALLOW [10] = '{
+      32'h74040003,32'h38080004,32'h48004800,32'h6c000004,
+      32'h6a000002,32'h380c0009,32'h68000001,32'h380c0005,
+      32'h7c000000,32'h78000000};
+    localparam bit [31:0] NESTED [17] = '{
+      32'h74040003,32'h38080004,32'h48004800,32'h6c00000b,
+      32'h6a000002,32'h3810005a,32'h68000008,32'h380c0002,
+      32'h48044c00,32'h6c000004,32'h6a400002,32'h3810001e,
+      32'h68000001,32'h3810000a,32'h7c000000,32'h7c000000,
+      32'h78000000};
+    function new(string name="structured_control_sequence");super.new(name);endfunction
+    task send_word(int unsigned index,bit[31:0]word,int file_handle);
+      core_command item=core_command::type_id::create($sformatf("program_%0d",index));
+      $fdisplay(file_handle,"%08x",word);
+      start_item(item);item.command=CORE_PROGRAM;item.address=6'(index);
+      item.data=word;finish_item(item);
+    endtask
+    task body();
+      core_command launch;
+      int program_file=$fopen("build/uvm/program.hex","w");
+      int config_file=$fopen("build/uvm/run.cfg","w");
+      if(!program_file||!config_file)
+        `uvm_fatal("PROGRAM","cannot write structured-control artifacts")
+      $fdisplay(config_file,"%0d",warp_count);$fclose(config_file);
+      if(nested) begin
+        foreach(NESTED[index]) send_word(index,NESTED[index],program_file);
+        instruction_count=19;
+      end else begin
+        foreach(SHALLOW[index]) send_word(index,SHALLOW[index],program_file);
+        instruction_count=11;
+      end
+      $fclose(program_file);
+      launch=core_command::type_id::create("launch");
+      start_item(launch);launch.command=CORE_LAUNCH;
+      launch.warp_count=warp_count;launch.launch_pc='0;finish_item(launch);
     endtask
   endclass
 
@@ -187,6 +240,7 @@ package simt_core_uvm_pkg;
           item.record.status=vif.commit.status;
           item.execute_stall_observed=execute_stall_since_commit;
           item.writeback_stall_observed=writeback_stall_since_commit;
+          item.resident_warps=vif.launch_warp_count;
           execute_stall_since_commit=1'b0;
           writeback_stall_since_commit=1'b0;
           item.canonical=$sformatf("C %0d %0d %0d %08x %08x %02x %02x %0d %0x %02x",
@@ -195,7 +249,7 @@ package simt_core_uvm_pkg;
             item.record.write_mask,item.record.writes_gpr,
             item.record.writes_gpr?item.record.gpr_dst:0,
             item.record.gpr_mask);
-          foreach(item.record.gpr_data[lane])
+          for(int lane=0;lane<LANES;lane++)
             item.canonical={item.canonical,$sformatf(" %08x",item.record.gpr_data[lane])};
           item.canonical={item.canonical,$sformatf(" %0d %0d %02x %02x",
             item.record.writes_pred,
@@ -259,6 +313,7 @@ package simt_core_uvm_pkg;
     bit sampled_predicated;
     bit sampled_execute_stall;
     bit sampled_writeback_stall;
+    bit [2:0] sampled_resident_warps;
     bit [7:0] sampled_mask;
     covergroup architectural_commits;
       option.per_instance=1;
@@ -271,11 +326,15 @@ package simt_core_uvm_pkg;
       predicated: coverpoint sampled_predicated;
       execute_stall: coverpoint sampled_execute_stall;
       writeback_stall: coverpoint sampled_writeback_stall;
+      resident_warps: coverpoint sampled_resident_warps {
+        bins counts[]={1,2,3,4};
+      }
       mask_class: coverpoint sampled_mask {
         bins empty={8'h00};bins full={8'hff};bins low_high={8'h0f,8'hf0};
         bins sparse=default;
       }
       opcode_by_warp: cross opcode,warp;
+      opcode_by_resident_warps: cross opcode,resident_warps;
       source_by_warp: cross source,warp;
       source_by_execute_stall: cross source,execute_stall;
       source_by_writeback_stall: cross source,writeback_stall;
@@ -291,6 +350,7 @@ package simt_core_uvm_pkg;
       sampled_predicated=t.record.instruction[25];
       sampled_execute_stall=t.execute_stall_observed;
       sampled_writeback_stall=t.writeback_stall_observed;
+      sampled_resident_warps=t.resident_warps;
       sampled_mask=t.record.write_mask;
       architectural_commits.sample();
     endfunction
@@ -301,6 +361,7 @@ package simt_core_uvm_pkg;
     uvm_analysis_imp #(commit_item,differential_scoreboard) analysis_export;
     int trace_file, observed;
     int expected_sequence[int];
+    int unsigned expected_warps=4;
     function new(string name,uvm_component parent);
       super.new(name,parent); analysis_export=new("analysis_export",this);
     endfunction
@@ -319,12 +380,13 @@ package simt_core_uvm_pkg;
     function void final_phase(uvm_phase phase);
       $fclose(trace_file);
       if(observed==0) `uvm_error("COUNT","no architectural commits observed")
-      if(expected_sequence.num()!=4)
-        `uvm_error("WARP_COUNT",$sformatf("observed warps=%0d expected=4",expected_sequence.num()))
+      if(expected_sequence.num()!=expected_warps)
+        `uvm_error("WARP_COUNT",$sformatf("observed warps=%0d expected=%0d",
+                   expected_sequence.num(),expected_warps))
       foreach(expected_sequence[warp])
-        if(expected_sequence[warp]!=(observed/4))
+        if(expected_sequence[warp]!=(observed/expected_warps))
           `uvm_error("WARP_COUNT",$sformatf("warp=%0d commits=%0d expected=%0d",
-                     warp,expected_sequence[warp],observed/4))
+                     warp,expected_sequence[warp],observed/expected_warps))
     endfunction
   endclass
 
@@ -439,6 +501,46 @@ package simt_core_uvm_pkg;
                    vif.issue_count,vif.commit_count))
       `uvm_info("BACKPRESSURE",$sformatf("execute_stalls=%0d writeback_stalls=%0d",
                 execute_stall_cycles,writeback_stall_cycles),UVM_LOW)
+      phase.drop_objection(this);
+    endtask
+  endclass
+
+  class structured_control_differential_test extends uvm_test;
+    `uvm_component_utils(structured_control_differential_test)
+    core_env env;virtual simt_core_if vif;
+    function new(string name,uvm_component parent);super.new(name,parent);endfunction
+    function void build_phase(uvm_phase phase);
+      super.build_phase(phase);env=core_env::type_id::create("env",this);
+      if(!uvm_config_db#(virtual simt_core_if)::get(this,"","vif",vif))
+        `uvm_fatal("NOVIF","test requires simt_core_if")
+    endfunction
+    task run_phase(uvm_phase phase);
+      structured_control_sequence test_sequence=
+        structured_control_sequence::type_id::create("test_sequence");
+      int warp_override,nested_override;
+      phase.raise_objection(this);
+      if(!test_sequence.randomize())
+        `uvm_fatal("RANDOMIZE","structured-control randomization failed")
+      if($value$plusargs("WARP_COUNT=%d",warp_override)&&warp_override!=0) begin
+        if(warp_override<1||warp_override>4)
+          `uvm_fatal("CONFIG","WARP_COUNT must be 1..4")
+        test_sequence.warp_count=3'(warp_override);
+      end
+      if($value$plusargs("NESTED=%d",nested_override)&&nested_override<=1)
+        test_sequence.nested=1'(nested_override);
+      env.scoreboard.expected_warps=test_sequence.warp_count;
+      test_sequence.start(env.agent.sequencer);
+      repeat(2000) begin @(negedge vif.clk); if(vif.done||vif.fault) break; end
+      if(!vif.done) `uvm_error("TIMEOUT","structured-control kernel did not drain")
+      if(vif.fault) `uvm_error("FAULT","structured-control kernel faulted")
+      if(vif.issue_count!=64'(test_sequence.instruction_count*test_sequence.warp_count)||
+         vif.commit_count!=64'(test_sequence.instruction_count*test_sequence.warp_count))
+        `uvm_error("COUNTERS",$sformatf("nested=%0d warps=%0d issue=%0d commit=%0d",
+          test_sequence.nested,test_sequence.warp_count,
+          vif.issue_count,vif.commit_count))
+      `uvm_info("STRUCTURED_CONTROL",$sformatf("nested=%0d warps=%0d commits=%0d",
+                test_sequence.nested,test_sequence.warp_count,
+                vif.commit_count),UVM_LOW)
       phase.drop_objection(this);
     endtask
   endclass
