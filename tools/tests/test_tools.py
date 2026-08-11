@@ -5,6 +5,7 @@ from assembler import assemble
 from disassembler import disassemble_word
 from gen_isa_sv import generate as generate_sv
 from isa import ISAError
+from hex_words_to_bin import convert
 class ToolTests(unittest.TestCase):
  def test_all_programs_assemble(self):
   for p in (ROOT/'tb/programs').glob('*.s'): self.assertTrue(assemble(p.read_text(),str(p)))
@@ -27,4 +28,10 @@ class ToolTests(unittest.TestCase):
   self.assertIn('OP_ADD = 6\'d1',generated)
   self.assertIn('OP_SYNC = 6\'d31',generated)
   self.assertIn('SR_ARGBASE = 10\'d6',generated)
+ def test_hex_word_conversion(self):
+  with tempfile.TemporaryDirectory() as directory:
+   source=pathlib.Path(directory)/'program.hex';binary=pathlib.Path(directory)/'program.bin'
+   source.write_text('38040007\n# comment\n78000000\n')
+   self.assertEqual(convert(source,binary),2)
+   self.assertEqual(struct.unpack('<2I',binary.read_bytes()),(0x38040007,0x78000000))
 if __name__=='__main__':unittest.main()

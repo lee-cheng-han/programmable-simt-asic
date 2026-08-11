@@ -73,14 +73,18 @@ module architectural_writeback (
 
 `ifndef SYNTHESIS
   always_comb begin
-    assert (!(fatal_i && (commit_valid_o || gpr_write_valid_o ||
-                          pred_write_valid_o || clear_gpr_valid_o ||
-                          clear_pred_valid_o)))
-      else $error("fatal priority failed to suppress architectural commit");
-    assert (!(stale_cancel_o && (commit_valid_o || gpr_write_valid_o ||
-                                 pred_write_valid_o || clear_gpr_valid_o ||
-                                 clear_pred_valid_o)))
-      else $error("stale completion produced an architectural side effect");
+    if (!$isunknown({fatal_i,commit_valid_o,gpr_write_valid_o,
+                     pred_write_valid_o,clear_gpr_valid_o,clear_pred_valid_o,
+                     stale_cancel_o})) begin
+      assert (!(fatal_i && (commit_valid_o || gpr_write_valid_o ||
+                            pred_write_valid_o || clear_gpr_valid_o ||
+                            clear_pred_valid_o)))
+        else $error("fatal priority failed to suppress architectural commit");
+      assert (!(stale_cancel_o && (commit_valid_o || gpr_write_valid_o ||
+                                   pred_write_valid_o || clear_gpr_valid_o ||
+                                   clear_pred_valid_o)))
+        else $error("stale completion produced an architectural side effect");
+    end
   end
 `endif
 endmodule

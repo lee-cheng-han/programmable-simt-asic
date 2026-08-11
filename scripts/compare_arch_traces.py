@@ -10,11 +10,11 @@ def main():
     if args.keyed:
         def key(line):
             fields=line.split()
-            if len(fields)<3 or fields[0]!="C":
+            if len(fields)<4 or fields[0]!="C":
                 raise SystemExit(f"invalid keyed trace line: {line}")
-            return int(fields[1]),int(fields[2])
+            return int(fields[1]),int(fields[2]),int(fields[3])
         if len({key(line) for line in a})!=len(a) or len({key(line) for line in b})!=len(b):
-            raise SystemExit("duplicate warp/sequence key in architectural trace")
+            raise SystemExit("duplicate epoch/warp/sequence key in architectural trace")
         a=sorted(a,key=key); b=sorted(b,key=key)
     for i,(x,y) in enumerate(zip(a,b),1):
         if x!=y: raise SystemExit(f"first architectural mismatch at trace line {i}\nexpected: {x}\nactual:   {y}")

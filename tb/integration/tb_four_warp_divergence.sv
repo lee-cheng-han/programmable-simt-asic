@@ -138,8 +138,8 @@ module tb_four_warp_divergence;
             if(commit.gpr_mask[lane])
               multi_r3[warp][lane]=commit.gpr_data[lane];
         $fwrite(multi_trace_file,
-                "C %0d %0d %08x %08x %02x %02x %0d %0d %02x",
-                commit.warp_id,commit.sequence_number,commit.pc,
+                "C %0d %0d %0d %08x %08x %02x %02x %0d %0d %02x",
+                commit.epoch,commit.warp_id,commit.sequence_number,commit.pc,
                 commit.instruction,commit.active_mask,commit.write_mask,
                 commit.writes_gpr,commit.gpr_dst,commit.gpr_mask);
         for(int lane=0;lane<LANES;lane++)

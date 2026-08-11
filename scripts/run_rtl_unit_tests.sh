@@ -179,6 +179,7 @@ build/verilator/four_warp_core/Vtb_four_warp_core
 python3 tools/assembler/assembler.py tb/programs/four_warp_arithmetic.s \
   -o build/four_warp_arithmetic.bin
 build/simt-emulator build/four_warp_arithmetic.bin --warps 4 \
+  --initial-epoch 1 --runs 2 \
   --trace build/model_four_warp.trace
 python3 scripts/compare_arch_traces.py --keyed \
   build/model_four_warp.trace build/rtl_four_warp.trace
@@ -205,6 +206,7 @@ build/simt-emulator build/divergence.bin \
 python3 scripts/compare_arch_traces.py \
   build/emulator_divergence.trace build/rtl_divergence.trace
 build/simt-emulator build/divergence.bin --warps 4 \
+  --initial-epoch 1 \
   --trace build/model_four_warp_divergence.trace
 python3 scripts/compare_arch_traces.py --keyed \
   build/model_four_warp_divergence.trace \

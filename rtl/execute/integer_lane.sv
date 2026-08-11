@@ -20,14 +20,6 @@ module integer_lane #(
   logic [XLEN-1:0] immediate_extended;
 
   always_comb begin
-    immediate_extended = {{(XLEN-10){imm_i[9]}}, imm_i};
-    result_o = '0;
-    predicate_result_o = 1'b0;
-    branch_condition_o = 1'b0;
-    memory_address_o = '0;
-    store_data_o = '0;
-    operation_supported_o = 1'b0;
-
     unique case (opcode_i)
       OP_NOP, OP_ADD, OP_SUB, OP_MUL, OP_MIN, OP_MAX, OP_AND, OP_OR, OP_XOR,
       OP_NOT, OP_SHL, OP_SHR, OP_SAR, OP_MOV, OP_MOVI, OP_SEL,
@@ -36,7 +28,15 @@ module integer_lane #(
       OP_EXIT, OP_SYNC: operation_supported_o = 1'b1;
       default: operation_supported_o = 1'b0;
     endcase
+  end
 
+  always_comb begin
+    immediate_extended = {{(XLEN-10){imm_i[9]}}, imm_i};
+    result_o = '0;
+    predicate_result_o = 1'b0;
+    branch_condition_o = 1'b0;
+    memory_address_o = '0;
+    store_data_o = '0;
     if (active_i) begin
       unique case (opcode_i)
         OP_NOP, OP_SSY, OP_SYNC, OP_BAR, OP_EXIT: begin end

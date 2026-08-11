@@ -13,7 +13,7 @@ module tb_four_warp_core;
   logic [63:0] cycle_count, issue_count, commit_count;
   int unsigned expected_sequence [WARPS];
   int unsigned observed_commits [WARPS];
-  logic [63:0] one_warp_cycles, four_warp_cycles;
+  logic [63:0] one_warp_cycles, four_warp_cycles, relaunch_cycles;
   integer trace_file;
 
   /* verilator lint_off BLKSEQ */
@@ -96,8 +96,8 @@ module tb_four_warp_core;
     observed_commits[warp]++;
     if (launched_warps == WARPS) begin
       $fwrite(trace_file,
-              "C %0d %0d %08x %08x %02x %02x %0d %0d %02x",
-              commit.warp_id, commit.sequence_number, commit.pc,
+              "C %0d %0d %0d %08x %08x %02x %02x %0d %0d %02x",
+              commit.epoch, commit.warp_id, commit.sequence_number, commit.pc,
               commit.instruction, commit.active_mask, commit.write_mask,
               commit.writes_gpr, commit.gpr_dst, commit.gpr_mask);
       for (int lane = 0; lane < LANES; lane++)
@@ -157,13 +157,19 @@ module tb_four_warp_core;
     run_kernel(1, one_warp_cycles);
     pulse_clear();
     run_kernel(4, four_warp_cycles);
+    pulse_clear();
+    run_kernel(4, relaunch_cycles);
+
+    if (relaunch_cycles != four_warp_cycles)
+      $fatal(1, "relaunch timing changed first=%0d second=%0d",
+             four_warp_cycles, relaunch_cycles);
 
     if ((24 * one_warp_cycles) <= (6 * four_warp_cycles))
       $fatal(1, "four warps did not improve IPC one_cycles=%0d four_cycles=%0d",
              one_warp_cycles, four_warp_cycles);
 
-    $display("PASS tb_four_warp_core one_cycles=%0d four_cycles=%0d one_ipc_x1000=%0d four_ipc_x1000=%0d",
-             one_warp_cycles, four_warp_cycles,
+    $display("PASS tb_four_warp_core one_cycles=%0d four_cycles=%0d relaunch_cycles=%0d one_ipc_x1000=%0d four_ipc_x1000=%0d",
+             one_warp_cycles, four_warp_cycles, relaunch_cycles,
              6000 / one_warp_cycles, 24000 / four_warp_cycles);
     $fclose(trace_file);
     $finish;

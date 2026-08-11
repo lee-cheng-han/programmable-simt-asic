@@ -35,8 +35,9 @@ module vector_integer_alu #(
                        ({LANES{!guard_exec_i}} | selected_predicate);
     gpr_write_mask_o = execute_mask_o & {LANES{writes_gpr_i}};
     pred_write_mask_o = execute_mask_o & {LANES{writes_pred_i}};
-    unsupported_operation_o = valid_i && !(&lane_supported);
   end
+
+  always_comb unsupported_operation_o = valid_i && !(&lane_supported);
 
   for (genvar lane = 0; lane < LANES; lane++) begin : gen_lanes
     integer_lane #(.XLEN(XLEN)) lane_u (

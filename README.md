@@ -15,8 +15,8 @@ checkable architectural behavior.
 Release stage:  Pre-memory stabilization and implementation checkpoint
 Completed:      Core; reconvergence; buffered frontend; four-warp reference traces
 Verified:       Python, C++, Verilator, architectural trace, and XSim components
-In progress:    SRAM selection, extended model lifecycle, and early synthesis
-Next:           Backpressure/formal gate and early implementation checkpoint
+In progress:    SRAM selection, mid-flight cancellation modeling, and early synthesis
+Next:           Random UVM, coverage, backpressure, and early implementation checkpoint
 Not started:    Memory system, DFT, physical implementation
 ```
 
@@ -68,14 +68,23 @@ presented as completed evidence.
 
 ```sh
 make test
+make uvm-compile
+make uvm-differential
+make uvm-regression UVM_SEEDS="1 2 3 4 5"
+make synth-elab
+make synth
 make assemble PROGRAM=tb/programs/vector_add.s
 build/simt-emulator build/vector_add.bin --memory tb/programs/vector_add.mem
 make xsim-smoke
 ```
 
 Requirements are Python 3.8+, a C++17 compiler, GNU Make, Verilator 5+, and
-Vivado/XSim 2025.2 for the optional cross-simulator compile/elaboration check.
+Yosys with the slang frontend for the optional synthesis checkpoint. Vivado/XSim
+2025.2 with UVM 1.2 provides the optional class-based differential compile and
+elaboration check.
 No package is installed automatically by repository scripts.
+UVM runs accept `UVM_TEST` and `SEED`; their programs, traces, comparison result,
+and simulator logs are retained under `build/uvm/runs/`.
 
 ## Current repository components
 
@@ -87,6 +96,7 @@ rtl/frontend/           Instruction memory, fetch, decoder
 rtl/register_file/      Replicated GPR file and predicate file
 rtl/execute/            Integer lanes, vector ALU, preliminary writeback
 tb/unit/                Self-checking component tests
+tb/uvm/                 UVM core agent, environment, scoreboard, and test
 tb/programs/            Directed assembly programs and memory images
 docs/                   Normative architecture and verification contracts
 scripts/                Reproducible regression entry points

@@ -63,6 +63,7 @@ module simt_core #(
 
   opcode_t selected_opcode;
   logic selected_pred_enable, selected_pred_invert, selected_guard_exec;
+  logic selected_uses_ra, selected_uses_rb;
   logic [1:0] selected_pred_index;
   logic [3:0] selected_rd, selected_ra, selected_rb;
   logic signed [9:0] selected_imm;
@@ -72,6 +73,7 @@ module simt_core #(
 
   word_t [LANES-1:0] src_a, src_b, special, alu_result;
   lane_mask_t pred_mask, execute_mask, gpr_mask, pred_write_mask;
+  lane_mask_t candidate_predicate, candidate_execute_mask;
   lane_mask_t alu_pred_result, branch_condition;
   word_t [LANES-1:0] memory_address, store_data;
   logic alu_unsupported, alu_result_ready, mul_issue_ready;
@@ -182,6 +184,8 @@ module simt_core #(
     selected_pred_invert = pred_invert[scheduler_warp];
     selected_guard_exec = guard_exec[scheduler_warp];
     selected_pred_index = pred_index[scheduler_warp];
+    selected_uses_ra = uses_ra[scheduler_warp];
+    selected_uses_rb = uses_rb[scheduler_warp];
     selected_rd = rd[scheduler_warp];
     selected_ra = ra[scheduler_warp];
     selected_rb = rb[scheduler_warp];
@@ -202,7 +206,9 @@ module simt_core #(
   end
 
   vector_register_file gpr_u (
-    .clk(clk), .rst(rst), .read_valid_i(scheduler_valid),
+    .clk(clk), .rst(rst),
+    .read_a_valid_i(scheduler_valid && selected_uses_ra),
+    .read_b_valid_i(scheduler_valid && selected_uses_rb),
     .read_warp_i(scheduler_warp), .read_ra_i(selected_ra),
     .read_rb_i(selected_rb), .read_a_o(src_a), .read_b_o(src_b),
     .write_valid_i(wb_gpr_v), .write_warp_i(wb_gpr_warp),
@@ -291,32 +297,43 @@ module simt_core #(
     .stage_valid_o(mul_stage_valid));
 
   always_comb begin
-    branch_taken_mask = execute_mask;
-    branch_not_taken_mask = selected_active_mask & ~execute_mask;
+    candidate_predicate = pred_mask ^ {LANES{selected_pred_invert}};
+    candidate_execute_mask = '0;
+    if (scheduler_valid)
+      candidate_execute_mask = selected_active_mask &
+        ({LANES{!selected_guard_exec}} | candidate_predicate);
+    branch_taken_mask = candidate_execute_mask;
+    branch_not_taken_mask = selected_active_mask & ~candidate_execute_mask;
     branch_divergent = selected_opcode == OP_BRA &&
                        branch_taken_mask != '0 &&
                        branch_not_taken_mask != '0;
     control_fault = 1'b0;
     control_fault_code = FAULT_NONE;
-    if (scheduler_valid && selected_opcode == OP_SSY &&
-        stack_depth_q[scheduler_warp] ==
-          $clog2(SIMT_STACK_DEPTH+1)'(SIMT_STACK_DEPTH)) begin
-      control_fault = 1'b1;
-      control_fault_code = FAULT_SIMT_STACK_OVERFLOW;
-    end else if (scheduler_valid && selected_opcode == OP_SYNC &&
-                 stack_depth_q[scheduler_warp] == 0) begin
-      control_fault = 1'b1;
-      control_fault_code = FAULT_SIMT_STACK_UNDERFLOW;
-    end else if (scheduler_valid && selected_opcode == OP_SYNC &&
-                 stack_reconv_q[scheduler_warp]
-                   [stack_depth_q[scheduler_warp]-1'b1] != selected_pc) begin
-      control_fault = 1'b1;
-      control_fault_code = FAULT_SIMT_CONTROL;
-    end else if (scheduler_valid && branch_divergent &&
-                 (!ssy_valid_q[scheduler_warp] ||
-                  stack_depth_q[scheduler_warp] == 0)) begin
-      control_fault = 1'b1;
-      control_fault_code = FAULT_SIMT_CONTROL;
+    if (scheduler_valid) begin
+      case (selected_opcode)
+        OP_SSY: if (stack_depth_q[scheduler_warp] ==
+                    $clog2(SIMT_STACK_DEPTH+1)'(SIMT_STACK_DEPTH)) begin
+          control_fault = 1'b1;
+          control_fault_code = FAULT_SIMT_STACK_OVERFLOW;
+        end
+        OP_SYNC: begin
+          if (stack_depth_q[scheduler_warp] == 0) begin
+            control_fault = 1'b1;
+            control_fault_code = FAULT_SIMT_STACK_UNDERFLOW;
+          end else if (stack_reconv_q[scheduler_warp]
+                         [stack_depth_q[scheduler_warp]-1'b1] != selected_pc) begin
+            control_fault = 1'b1;
+            control_fault_code = FAULT_SIMT_CONTROL;
+          end
+        end
+        OP_BRA: if (branch_divergent &&
+                    (!ssy_valid_q[scheduler_warp] ||
+                     stack_depth_q[scheduler_warp] == 0)) begin
+          control_fault = 1'b1;
+          control_fault_code = FAULT_SIMT_CONTROL;
+        end
+        default: begin end
+      endcase
     end
   end
 
@@ -454,7 +471,7 @@ module simt_core #(
           warp_valid_q[warp] <= warp < launch_warp_count_i;
           warp_pc_q[warp] <= launch_pc_i;
           warp_sequence_q[warp] <= '0;
-          warp_active_mask_q[warp] <= '1;
+          warp_active_mask_q[warp] <= {LANES{1'b1}};
           stack_depth_q[warp] <= '0;
           ssy_valid_q[warp] <= 1'b0;
         end
@@ -572,22 +589,23 @@ module simt_core #(
   endproperty
   assert property (p_control_fault_suppresses_issue);
 
-  always_comb begin
-    if (issue_fire) begin
+  always_ff @(posedge clk) begin
+    if (!rst && !clear_i && issue_fire) begin
       assert (scheduler_grant[scheduler_warp]);
       assert (scoreboard_ready);
       assert (!alu_unsupported);
       if (selected_opcode != OP_BRA) assert (branch_condition == '0);
       assert (memory_address == '0 && store_data == '0);
     end
-    assert (!source_ready[2]);
-    if (fetch_request_valid) begin
+    if (!rst && !clear_i) assert (!source_ready[2]);
+    if (!rst && !clear_i && fetch_request_valid) begin
       assert (32'(fetch_request_warp) < 32'(WARPS));
       assert (32'(fetch_request_addr) < 32'(IMEM_WORDS));
     end
-    if (completion_v) assert (selected_completion_source < 2);
-    if (fault_valid) assert (simultaneous_causes != 0);
-    assert (!stale_cancel);
+    if (!rst && !clear_i && completion_v)
+      assert (selected_completion_source < 2);
+    if (!rst && !clear_i && fault_valid) assert (simultaneous_causes != 0);
+    if (!rst && !clear_i) assert (!stale_cancel);
   end
 `endif
   /* verilator lint_on WIDTHTRUNC */

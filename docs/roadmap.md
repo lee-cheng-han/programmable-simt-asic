@@ -127,10 +127,10 @@ must pass across multiple seeds.
 
 Current evidence: an independent four-warp C++ model owns per-warp PC, mask,
 register, predicate, sequence, dependency, multiplier-latency, and SIMT-stack
-state with round-robin issue. Keyed first-mismatch comparison passes 24
-arithmetic events and 44 simultaneous-divergence events against RTL. Predication
-is exercised inside divergence, including taken/deferred masks. Explicit
-clear/relaunch, epoch cancellation, fatal-stack differential records, completion
+state with round-robin issue. Epoch/warp/sequence-keyed first-mismatch comparison
+passes 48 arithmetic events across clear/relaunch and 44 simultaneous-divergence
+events against RTL. Predication is exercised inside divergence, including
+taken/deferred masks. Mid-flight epoch cancellation, fatal-stack differential records, completion
 arbitration timing, and multi-seed structured-control generation remain open.
 
 ### Early implementation checkpoint
@@ -147,6 +147,17 @@ test contract requires it. Any timing or area concern that would change the
 pipeline, memory ports, banking, or physical hierarchy must be resolved before
 the memory architecture freezes.
 
+Current evidence: the complete authoritative core parses through the Yosys slang
+frontend without errors or warnings. A generic behavioral-array trial reached
+118,529 cells before ABC and presented ABC with 92,123 combinational gates,
+25,298 inputs, and 3,266 outputs. This is diagnostic evidence, not a PPA result:
+the replicated register file and behavioral storage structures dominate the
+unmapped design. `make synth-elab` provides the bounded frontend gate and
+`make synth` preserves the full generic experiment and its report. SRAM macro
+qualification, memory wrappers, register-file implementation review, mapped
+timing/area, and trial floorplanning therefore remain required before this
+checkpoint closes.
+
 ### Pre-memory verification gate
 
 Add randomized backpressure at execution completion and architectural writeback.
@@ -159,6 +170,47 @@ latency, branch-mask, stack-wrap, and early-done defects.
 Exit requires all required simulations, differential traces, selected bounded
 proofs, and the initial mutation set to pass. Results must be reproducible from
 checked-in commands, and every remaining waiver must have an owner and reason.
+
+Current class-based evidence: a UVM 1.2 core agent drives instruction
+programming and launch, monitors architectural commits, checks per-warp sequence
+continuity and drained counters, emits the canonical trace, and compares it with
+the independent C++ model. A legal constrained-random integer/dependency
+sequence, clear/relaunch virtual sequence, architectural coverage subscriber,
+seeded five-run entry point, and per-run artifact layout compile and elaborate.
+Runtime seed results, expanded structured-control/lifecycle randomness, coverage
+analysis, and backpressure injection remain open.
+
+The class-based verification work proceeds through four explicit closure phases:
+
+1. **Environment foundation — current.** Preserve the core agent, driver,
+   monitor, scoreboard, directed sequence, canonical trace export, and
+   independent-model differential test as a continuously passing smoke gate.
+2. **Random stimulus and observability — next.** Add constrained-random legal
+   integer/dependency, predication, structured-control, lifecycle, and fault
+   sequences; virtual sequences coordinating programming, launch, clear,
+   recovery, and backpressure; functional coverage tied to architectural risk;
+   and simulation assertions for the exercised protocols. Every failure must
+   preserve its seed, generated program, logs, and first-mismatch traces.
+3. **Regression and analysis.** Run deterministic multi-seed regressions, merge
+   coverage databases, publish coverage reports, and classify each hole as
+   missing stimulus, generator defect, sampling defect, unreachable behavior,
+   unsupported behavior, RTL defect, or coverage-model defect. Add targeted
+   sequences for legitimate holes and documented exclusions for unreachable
+   combinations.
+4. **Verification closure.** Close the approved coverage model, promote critical
+   simulation assertions into bounded formal properties, execute the mutation
+   suite, publish injected/detected/surviving counts, and map every surviving
+   defect or waiver back to a requirement, test, property, owner, and reason.
+
+The first random release must cover one through four resident warps, RAW/WAW and
+independent instruction streams, ALU/multiplier dependencies, predicate mask
+classes, uniform and divergent branches, legal nested stack depths, drained
+relaunch, mid-flight clear, fatal recovery, completion-source collisions, and
+random completion/writeback stalls. High-value coverage crosses include opcode
+by warp count, producer by consumer dependency, completion source by stall and
+collision, branch outcome by mask class, stack depth by warp, and fault or clear
+timing by outstanding work. Unbounded or architecturally meaningless crosses are
+excluded rather than pursued for a cosmetic percentage.
 
 ## Memory system
 

@@ -16,6 +16,7 @@ class MultiWarpEmulator {
 
   explicit MultiWarpEmulator(unsigned warps);
   void load_program(const std::vector<uint32_t>& words);
+  void relaunch();
   bool run(uint64_t max_cycles = 100000);
   void dump_trace(const std::string& path) const;
   uint64_t cycles() const { return cycle_; }
@@ -47,6 +48,7 @@ class MultiWarpEmulator {
   };
 
   struct TraceEvent {
+    uint8_t epoch{};
     unsigned warp{};
     uint16_t sequence{};
     uint32_t pc{}, instruction{};
@@ -62,6 +64,7 @@ class MultiWarpEmulator {
   };
 
   unsigned resident_warps_{};
+  uint8_t epoch_{};
   unsigned next_warp_{};
   uint64_t cycle_{}, issues_{};
   bool faulted_{};
@@ -76,6 +79,7 @@ class MultiWarpEmulator {
   bool execute(unsigned warp);
   void commit_event(const TraceEvent& event);
   void fault(uint32_t pc);
+  void reset_kernel_state(bool preserve_trace);
 };
 
 }  // namespace simt

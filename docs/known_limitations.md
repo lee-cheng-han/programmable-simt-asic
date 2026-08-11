@@ -10,9 +10,9 @@ one-warp emulator trace agreement.
 The original C++ emulator remains the memory-capable single-warp architectural
 model. A separate four-warp model now covers independent warp state,
 round-robin issue, GPR dependency stalls, three-cycle multiplier completion,
-SIMT stacks, and warp/sequence-keyed arithmetic and divergence traces. It does
-not yet model completion-queue arbitration, epoch clear/relaunch, multi-warp
-memory ordering, or barriers. The core uses one shared instruction port with
+SIMT stacks, and epoch/warp/sequence-keyed arithmetic, divergence, and drained
+clear/relaunch traces. It does not yet model completion-queue arbitration,
+mid-flight epoch cancellation, multi-warp memory ordering, or barriers. The core uses one shared instruction port with
 round-robin arbitration, a tagged in-flight response, and one stable buffer per
 warp. Its storage array is still behavioral until a qualified open-PDK SRAM macro
 and all required physical/timing views are selected. General/shared memory
@@ -24,3 +24,10 @@ throughput workload, not post-synthesis frequency or silicon results. Assembly
 memory images are simple text fixtures rather than an ELF ABI. The older
 one-entry writeback component remains test history and is not the architectural
 commit path.
+
+The UVM 1.2 environment, constrained-random integer sequence, lifecycle virtual
+sequence, and architectural coverage model compile and elaborate with XSim on
+the current host. This host's XSim runtime launcher currently terminates with an
+internal Tcl exception before time zero, so UVM simulation, merged coverage, and
+multi-seed results are not claimed yet. The run target detects the absent trace
+and fails instead of accepting an elaboration-only result.

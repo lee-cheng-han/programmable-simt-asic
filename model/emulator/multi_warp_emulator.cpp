@@ -19,13 +19,23 @@ MultiWarpEmulator::MultiWarpEmulator(unsigned warps) : resident_warps_(warps) {
 
 void MultiWarpEmulator::load_program(const std::vector<uint32_t>& words) {
   program_ = words;
+  epoch_ = 0;
+  reset_kernel_state(false);
+}
+
+void MultiWarpEmulator::relaunch() {
+  epoch_ = uint8_t((epoch_ + 1u) & 0x3fu);
+  reset_kernel_state(true);
+}
+
+void MultiWarpEmulator::reset_kernel_state(bool preserve_trace) {
   cycle_ = 0;
   issues_ = 0;
   next_warp_ = 0;
   faulted_ = false;
   fault_pc_ = 0;
   multiplies_.clear();
-  trace_.clear();
+  if (!preserve_trace) trace_.clear();
   warps_ = {};
   for (unsigned warp = 0; warp < kMaxWarps; ++warp) {
     warps_[warp].valid = warp < resident_warps_;
@@ -130,6 +140,7 @@ bool MultiWarpEmulator::execute(unsigned index) {
                            : warp.predicates[pred];
 
   TraceEvent event{};
+  event.epoch = epoch_;
   event.warp = index;
   event.sequence = warp.sequence++;
   event.pc = old_pc;
@@ -293,7 +304,8 @@ void MultiWarpEmulator::dump_trace(const std::string& path) const {
   std::ofstream file(path);
   if (!file) throw std::runtime_error("cannot open trace: " + path);
   for (const auto& event : trace_) {
-    file << "C " << std::dec << event.warp << ' ' << event.sequence << ' '
+    file << "C " << std::dec << unsigned(event.epoch) << ' ' << event.warp
+         << ' ' << event.sequence << ' '
          << std::hex << std::setw(8) << std::setfill('0') << event.pc << ' '
          << std::setw(8) << event.instruction << ' '
          << std::setw(2) << unsigned(event.active) << ' '

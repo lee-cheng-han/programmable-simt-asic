@@ -22,7 +22,8 @@ module tb_vector_register_file;
 
   vector_register_file dut (
     .clk(clk), .rst(rst),
-    .read_valid_i(read_valid), .read_warp_i(read_warp),
+    .read_a_valid_i(read_valid), .read_b_valid_i(read_valid),
+    .read_warp_i(read_warp),
     .read_ra_i(read_ra), .read_rb_i(read_rb),
     .read_a_o(read_a), .read_b_o(read_b),
     .write_valid_i(write_valid), .write_warp_i(write_warp),

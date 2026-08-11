@@ -109,11 +109,67 @@ The independent four-warp C++ model maintains a PC, active mask, GPRs,
 predicates, dependency state, sequence counter, and depth-eight SIMT stack for
 each resident warp. It selects eligible warps round-robin and delays multiplier
 results by three model cycles. RTL and model emit canonical commit records keyed
-by warp and sequence; the comparator rejects duplicate keys and reports the
-first field-level mismatch after key ordering. The arithmetic comparison covers
-24 events and the simultaneous divergence comparison covers 44 events. Epoch
-clear/relaunch, completion arbitration, memory, barriers, and randomized control
-flow remain assigned to the rest of the pre-memory stabilization gate.
+by epoch, warp, and sequence; the comparator rejects duplicate keys and reports
+the first field-level mismatch after key ordering. The arithmetic comparison
+covers 48 events across two drained launches and the simultaneous divergence
+comparison covers 44 events. Mid-flight epoch cancellation, completion
+arbitration, memory, barriers, and randomized control flow remain assigned to
+the rest of the pre-memory stabilization gate.
+
+The UVM 1.2 processor environment provides a reusable command sequence item,
+sequencer, active programming/launch driver, architectural commit monitor,
+agent, environment, and protocol-aware scoreboard. Its smoke test programs and
+launches four warps, enforces per-warp sequence continuity, checks drained issue
+and commit counts, writes the canonical epoch/warp/sequence trace, and invokes
+the same independent C++ model and first-mismatch comparator used by the directed
+regression. `make uvm-differential` is the reproducible entry point. UVM remains
+an additional verification frontend and does not replace fast Verilator tests.
+
+### UVM and differential closure plan
+
+The current environment foundation consists of the active core agent, driver,
+monitor, scoreboard, basic arithmetic sequence, and independent differential
+test. It remains the smoke gate while the environment expands.
+
+The current implementation includes constrained-random legal integer/dependency
+programs, a clear/relaunch virtual sequence, deterministic test/seed selection,
+per-run artifacts, and architectural opcode/warp/source/mask coverage. The next
+increment expands lifecycle/fault scenarios, adds randomized completion and
+writeback backpressure, and extends protocol assertions and functional coverage. Random
+generation must favor meaningful dependency, predication, scheduling, and
+structured-control scenarios rather than arbitrary words dominated by illegal
+encodings. Every run records the test name, simulator, seed, generated assembly
+and binary, RTL trace, model trace, first mismatch, and simulation log.
+
+The regression increment runs reproducible seed lists in parallel, retains all
+failure artifacts, merges coverage, and reports both numerical results and
+uncovered bins. Coverage holes are reviewed and classified before stimulus is
+changed. Legitimate holes receive targeted sequences or adjusted weights;
+unreachable bins require reviewed exclusions; RTL and coverage-model defects
+remain failures until corrected.
+
+Closure requires the approved functional coverage model to be complete, with no
+unexplained holes; selected safety and conservation assertions to pass bounded
+formal analysis; and an initial mutation set to produce quantitative detection
+results. Mutations include scheduler priority, wrong-warp or wrong-sequence
+scoreboard clear, removed epoch checking, multiplier-latency changes, dropped
+simultaneous completions, PC advance without issue, stale frontend retention,
+swapped branch masks, stack wrap, early `done`, and fault-cycle writeback. Every
+survivor must cause a new test/property or receive an architectural-equivalence
+justification.
+
+Initial functional coverage includes opcode, resident warp count, selected warp,
+completion source, dependency type, predicate mode, active-mask class, branch
+outcome, divergence depth, queue occupancy, multiplier occupancy, epoch
+transition, clear timing, fault class, and kernel-drain blocker. Required crosses
+are limited to combinations representing a documented design risk so coverage
+closure remains technically meaningful.
+
+`make uvm-regression UVM_SEEDS="1 2 3 4 5"` is the initial deterministic
+multi-seed entry point. Each successful run retains its generated hexadecimal
+and binary program, model and RTL traces, first-mismatch result, and simulator
+logs under a test-and-seed-specific directory. Coverage databases use the same
+test-and-seed identity for later merging.
 
 The divergence integration test executes the canonical `SSY`, guarded `BRA`,
 uniform redirect, and two-arrival `SYNC` sequence. It checks low-lane taken-path

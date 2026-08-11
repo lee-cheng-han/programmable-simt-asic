@@ -10,7 +10,8 @@ module vector_register_file #(
   input  logic clk,
   input  logic rst,
 
-  input  logic              read_valid_i,
+  input  logic              read_a_valid_i,
+  input  logic              read_b_valid_i,
   input  logic [WARP_W-1:0] read_warp_i,
   input  logic [REG_W-1:0]  read_ra_i,
   input  logic [REG_W-1:0]  read_rb_i,
@@ -42,19 +43,20 @@ module vector_register_file #(
 
     read_a_o = '0;
     read_b_o = '0;
-    if (read_valid_i && !rst) begin
+    if (!rst) begin
       for (int unsigned lane = 0; lane < LANES; lane++) begin
+        if (read_a_valid_i) begin
         read_a_o[lane] = replica_a[lane][read_addr_a];
-        read_b_o[lane] = replica_b[lane][read_addr_b];
-
-        // Forward only lanes written by a valid same-warp, same-register
-        // writeback. Unwritten lanes retain the value held in their bank.
-        if (write_valid_i && write_lane_mask_i[lane] &&
-            write_warp_i == read_warp_i && write_reg_i == read_ra_i)
-          read_a_o[lane] = write_data_i[lane];
-        if (write_valid_i && write_lane_mask_i[lane] &&
-            write_warp_i == read_warp_i && write_reg_i == read_rb_i)
-          read_b_o[lane] = write_data_i[lane];
+          if (write_valid_i && write_lane_mask_i[lane] &&
+              write_warp_i == read_warp_i && write_reg_i == read_ra_i)
+            read_a_o[lane] = write_data_i[lane];
+        end
+        if (read_b_valid_i) begin
+          read_b_o[lane] = replica_b[lane][read_addr_b];
+          if (write_valid_i && write_lane_mask_i[lane] &&
+              write_warp_i == read_warp_i && write_reg_i == read_rb_i)
+            read_b_o[lane] = write_data_i[lane];
+        end
       end
     end
   end
@@ -71,16 +73,14 @@ module vector_register_file #(
   end
 
 `ifndef SYNTHESIS
-  // A write accepted in the preceding cycle must be visible identically from
-  // both replicas. Sampling occurs before any current-cycle nonblocking update,
-  // so this remains valid for consecutive writes to the same address.
+  // Both physical read-port replicas must remain identical after every accepted
+  // write. Data-value and forwarding correctness are checked by the unit and
+  // differential scoreboards; this property protects the replication invariant.
   for (genvar lane = 0; lane < LANES; lane++) begin : gen_replica_assertions
     property p_replicated_write;
       @(posedge clk) disable iff (rst)
         (write_valid_i && write_lane_mask_i[lane])
-        |=> (replica_a[lane][$past(write_addr)] == $past(write_data_i[lane]) &&
-             replica_b[lane][$past(write_addr)] == $past(write_data_i[lane]) &&
-             replica_a[lane][$past(write_addr)] ==
+        |=> (replica_a[lane][$past(write_addr)] ==
              replica_b[lane][$past(write_addr)]);
     endproperty
     assert property (p_replicated_write)

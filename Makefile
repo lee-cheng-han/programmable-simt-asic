@@ -4,7 +4,7 @@ CXXFLAGS ?= -std=c++17 -Wall -Wextra -Wpedantic -Werror -O2
 BUILD := build
 PROGRAM ?= tb/programs/arithmetic.s
 
-.PHONY: all test python-test emulator-test rtl-test assemble disassemble xsim-smoke clean
+.PHONY: all test python-test emulator-test rtl-test uvm-compile uvm-differential uvm-regression synth-elab synth assemble disassemble xsim-smoke clean
 all: $(BUILD)/simt-emulator
 
 $(BUILD):
@@ -26,6 +26,21 @@ test: python-test emulator-test rtl-test
 
 rtl-test:
 	scripts/run_rtl_unit_tests.sh
+
+uvm-compile: $(BUILD)/simt-emulator
+	UVM_ELAB_ONLY=1 scripts/run_uvm_differential.sh
+
+uvm-differential: $(BUILD)/simt-emulator
+	scripts/run_uvm_differential.sh
+
+uvm-regression: $(BUILD)/simt-emulator
+	scripts/run_uvm_regression.sh $(UVM_SEEDS)
+
+synth-elab:
+	SYNTH_ELAB_ONLY=1 scripts/run_early_synthesis.sh
+
+synth:
+	scripts/run_early_synthesis.sh
 
 assemble: | $(BUILD)
 	$(PYTHON) tools/assembler/assembler.py $(PROGRAM) -o $(BUILD)/$(notdir $(basename $(PROGRAM))).bin
