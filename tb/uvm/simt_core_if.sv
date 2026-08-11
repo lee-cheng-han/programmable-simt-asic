@@ -9,11 +9,27 @@ interface simt_core_if(input logic clk);
   logic launch_valid=0, launch_ready;
   logic [31:0] launch_pc=0;
   logic [2:0] launch_warp_count=0;
+  logic execute_completion_ready=1, commit_ready=1;
   logic running, done, fault;
   logic [31:0] fault_pc;
   fault_code_t fault_code;
   logic commit_valid;
   completion_record_t commit;
   logic [63:0] cycle_count, issue_count, commit_count;
+
+  property p_commit_stable_while_stalled;
+    @(posedge clk) disable iff (rst || clear)
+      commit_valid && !commit_ready
+      |=> commit_ready || (commit_valid && $stable(commit));
+  endproperty
+  assert property (p_commit_stable_while_stalled)
+    else $error("architectural commit changed while writeback was stalled");
+
+  property p_commit_counter_stable_while_stalled;
+    @(posedge clk) disable iff (rst || clear)
+      commit_valid && !commit_ready |=> commit_ready || $stable(commit_count);
+  endproperty
+  assert property (p_commit_counter_stable_while_stalled)
+    else $error("commit counter advanced without a writeback handshake");
 
 endinterface

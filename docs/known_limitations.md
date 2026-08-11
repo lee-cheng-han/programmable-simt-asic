@@ -25,9 +25,8 @@ memory images are simple text fixtures rather than an ELF ABI. The older
 one-entry writeback component remains test history and is not the architectural
 commit path.
 
-The UVM 1.2 environment, constrained-random integer sequence, lifecycle virtual
-sequence, and architectural coverage model compile and elaborate with XSim on
-the current host. This host's XSim runtime launcher currently terminates with an
-internal Tcl exception before time zero, so UVM simulation, merged coverage, and
-multi-seed results are not claimed yet. The run target detects the absent trace
-and fails instead of accepting an elaboration-only result.
+The UVM 1.2 environment runs with XSim 2026.1 on the current host. Directed,
+legal constrained-random, and randomized execution/writeback-backpressure tests
+produce model-matched traces and retain per-seed coverage databases. Coverage
+database merging and numerical closure, randomized structured control and fault
+recovery, bounded proofs, and mutation results are not yet claimed.

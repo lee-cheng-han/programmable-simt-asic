@@ -28,6 +28,7 @@ module tb_four_warp_divergence;
     .prog_addr_i(prog_addr),.prog_data_i(prog_data),
     .launch_valid_i(launch_valid),.launch_ready_o(launch_ready),
     .launch_pc_i(launch_pc),.launch_warp_count_i(launch_warp_count),
+    .execute_completion_ready_i(1'b1),.commit_ready_i(1'b1),
     .running_o(running),.done_o(done),.fault_o(fault),
     .fault_pc_o(fault_pc),.fault_code_o(fault_code),
     .commit_valid_o(commit_valid),.commit_o(commit),
@@ -138,14 +139,16 @@ module tb_four_warp_divergence;
             if(commit.gpr_mask[lane])
               multi_r3[warp][lane]=commit.gpr_data[lane];
         $fwrite(multi_trace_file,
-                "C %0d %0d %0d %08x %08x %02x %02x %0d %0d %02x",
+                "C %0d %0d %0d %08x %08x %02x %02x %0d %0x %02x",
                 commit.epoch,commit.warp_id,commit.sequence_number,commit.pc,
                 commit.instruction,commit.active_mask,commit.write_mask,
-                commit.writes_gpr,commit.gpr_dst,commit.gpr_mask);
+                commit.writes_gpr,
+                commit.writes_gpr?commit.gpr_dst:0,commit.gpr_mask);
         for(int lane=0;lane<LANES;lane++)
           $fwrite(multi_trace_file," %08x",commit.gpr_data[lane]);
         $fwrite(multi_trace_file," %0d %0d %02x %02x\n",
-                commit.writes_pred,commit.pred_dst,
+                commit.writes_pred,
+                commit.writes_pred?commit.pred_dst:0,
                 commit.pred_mask,commit.pred_data);
         multi_sequence[warp]++;multi_commits++;end
       if(done)break;end

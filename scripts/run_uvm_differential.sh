@@ -78,6 +78,11 @@ rm -f "$repo_root/build/uvm_four_warp.trace"
   --cov_db_dir "$repo_root/build/uvm/coverage" \
   --cov_db_name "${uvm_test}_${seed}" --log "$run_dir/xsim.log"
 
+if grep -Eq 'UVM_(ERROR|FATAL) :[[:space:]]*[1-9]|^(Error:|ERROR: Assertion failed)' "$run_dir/xsim.log"; then
+  echo "UVM/XSim reported an error; see $run_dir/xsim.log" >&2
+  exit 1
+fi
+
 trace="$repo_root/build/uvm_four_warp.trace"
 [[ -s "$trace" ]] || {
   echo 'UVM simulation did not produce its architectural trace' >&2

@@ -133,10 +133,11 @@ test. It remains the smoke gate while the environment expands.
 
 The current implementation includes constrained-random legal integer/dependency
 programs, a clear/relaunch virtual sequence, deterministic test/seed selection,
-per-run artifacts, and architectural opcode/warp/source/mask coverage. The next
-increment expands lifecycle/fault scenarios, adds randomized completion and
-writeback backpressure, and extends protocol assertions and functional coverage. Random
-generation must favor meaningful dependency, predication, scheduling, and
+per-run artifacts, randomized execution-completion and writeback backpressure,
+stable-handshake assertions, and architectural opcode/warp/source/mask/stall
+coverage. The next increment expands structured-control and lifecycle/fault
+scenarios and begins merged coverage analysis. Random generation must favor
+meaningful dependency, predication, scheduling, and
 structured-control scenarios rather than arbitrary words dominated by illegal
 encodings. Every run records the test name, simulator, seed, generated assembly
 and binary, RTL trace, model trace, first mismatch, and simulation log.

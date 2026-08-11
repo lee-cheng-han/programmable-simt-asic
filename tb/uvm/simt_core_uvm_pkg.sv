@@ -19,6 +19,8 @@ package simt_core_uvm_pkg;
     `uvm_object_utils(commit_item)
     completion_record_t record;
     string canonical;
+    bit execute_stall_observed;
+    bit writeback_stall_observed;
     function new(string name="commit_item"); super.new(name); endfunction
   endclass
 
@@ -50,13 +52,15 @@ package simt_core_uvm_pkg;
     `uvm_object_utils(random_integer_instruction)
     rand bit [5:0] opcode;
     rand bit [3:0] rd,ra,rb;
+    int unsigned max_source=2;
     constraint legal_opcode {opcode inside {6'd1,6'd2,6'd3,6'd4,6'd5,
                                              6'd6,6'd7,6'd8};}
     constraint writable_destination {rd inside {[3:15]};}
-    constraint legal_sources {ra inside {[1:15]};rb inside {[1:15]};}
+    constraint legal_sources {ra inside {[1:max_source]};
+                              rb inside {[1:max_source]};}
     function new(string name="random_integer_instruction");super.new(name);endfunction
     function bit [31:0] encode();
-      return {opcode,2'b0,rd,ra,rb,10'b0};
+      return {opcode,4'b0,rd,ra,rb,10'b0};
     endfunction
   endclass
 
@@ -81,7 +85,9 @@ package simt_core_uvm_pkg;
       send_word(1,32'h38080003,program_file);
       for(int unsigned index=0;index<body_length;index++)begin
         generated=random_integer_instruction::type_id::create($sformatf("instruction_%0d",index));
+        generated.max_source=(index<13)?index+2:15;
         if(!generated.randomize()) `uvm_fatal("RANDOMIZE","instruction randomization failed")
+        if(index<13) generated.rd=4'(index+3);
         send_word(index+2,generated.encode(),program_file);
       end
       send_word(body_length+2,32'h78000000,program_file);
@@ -135,6 +141,8 @@ package simt_core_uvm_pkg;
     `uvm_component_utils(commit_monitor)
     virtual simt_core_if vif;
     uvm_analysis_port #(commit_item) analysis_port;
+    bit execute_stall_since_commit;
+    bit writeback_stall_since_commit;
     function new(string name,uvm_component parent);
       super.new(name,parent); analysis_port=new("analysis_port",this);
     endfunction
@@ -146,11 +154,15 @@ package simt_core_uvm_pkg;
     task run_phase(uvm_phase phase);
       commit_item item;
       forever begin
-        @(negedge vif.clk);
+        @(posedge vif.clk);
+        if(!vif.execute_completion_ready)
+          execute_stall_since_commit=1'b1;
+        if(vif.commit_valid && !vif.commit_ready)
+          writeback_stall_since_commit=1'b1;
         if(vif.fault)
           `uvm_error("CORE_FAULT",$sformatf("code=%0d pc=%0d",
                      vif.fault_code,vif.fault_pc))
-        if(vif.commit_valid) begin
+        if(vif.commit_valid && vif.commit_ready) begin
           item=commit_item::type_id::create("commit");
           item.record.valid=vif.commit.valid;
           item.record.epoch=vif.commit.epoch;
@@ -173,15 +185,21 @@ package simt_core_uvm_pkg;
           item.record.clear_pred_pending=vif.commit.clear_pred_pending;
           item.record.completion_class=vif.commit.completion_class;
           item.record.status=vif.commit.status;
-          item.canonical=$sformatf("C %0d %0d %0d %08x %08x %02x %02x %0d %0d %02x",
+          item.execute_stall_observed=execute_stall_since_commit;
+          item.writeback_stall_observed=writeback_stall_since_commit;
+          execute_stall_since_commit=1'b0;
+          writeback_stall_since_commit=1'b0;
+          item.canonical=$sformatf("C %0d %0d %0d %08x %08x %02x %02x %0d %0x %02x",
             item.record.epoch,item.record.warp_id,item.record.sequence_number,
             item.record.pc,item.record.instruction,item.record.active_mask,
-            item.record.write_mask,item.record.writes_gpr,item.record.gpr_dst,
+            item.record.write_mask,item.record.writes_gpr,
+            item.record.writes_gpr?item.record.gpr_dst:0,
             item.record.gpr_mask);
           foreach(item.record.gpr_data[lane])
             item.canonical={item.canonical,$sformatf(" %08x",item.record.gpr_data[lane])};
           item.canonical={item.canonical,$sformatf(" %0d %0d %02x %02x",
-            item.record.writes_pred,item.record.pred_dst,item.record.pred_mask,
+            item.record.writes_pred,
+            item.record.writes_pred?item.record.pred_dst:0,item.record.pred_mask,
             item.record.pred_data)};
           analysis_port.write(item);
         end
@@ -239,6 +257,8 @@ package simt_core_uvm_pkg;
     bit [1:0] sampled_warp;
     bit [1:0] sampled_source;
     bit sampled_predicated;
+    bit sampled_execute_stall;
+    bit sampled_writeback_stall;
     bit [7:0] sampled_mask;
     covergroup architectural_commits;
       option.per_instance=1;
@@ -249,12 +269,16 @@ package simt_core_uvm_pkg;
       warp: coverpoint sampled_warp {bins resident[]={0,1,2,3};}
       source: coverpoint sampled_source {bins alu={0};bins multiplier={1};}
       predicated: coverpoint sampled_predicated;
+      execute_stall: coverpoint sampled_execute_stall;
+      writeback_stall: coverpoint sampled_writeback_stall;
       mask_class: coverpoint sampled_mask {
         bins empty={8'h00};bins full={8'hff};bins low_high={8'h0f,8'hf0};
         bins sparse=default;
       }
       opcode_by_warp: cross opcode,warp;
       source_by_warp: cross source,warp;
+      source_by_execute_stall: cross source,execute_stall;
+      source_by_writeback_stall: cross source,writeback_stall;
       opcode_by_mask: cross opcode,mask_class;
     endgroup
     function new(string name,uvm_component parent);
@@ -265,6 +289,8 @@ package simt_core_uvm_pkg;
       sampled_warp=t.record.warp_id;
       sampled_source=t.record.completion_class;
       sampled_predicated=t.record.instruction[25];
+      sampled_execute_stall=t.execute_stall_observed;
+      sampled_writeback_stall=t.writeback_stall_observed;
       sampled_mask=t.record.write_mask;
       architectural_commits.sample();
     endfunction
@@ -369,6 +395,50 @@ package simt_core_uvm_pkg;
         `uvm_error("COUNTERS",$sformatf("instructions=%0d issue=%0d commit=%0d",
           test_sequence.instruction_count,vif.issue_count,
           vif.commit_count))
+      phase.drop_objection(this);
+    endtask
+  endclass
+
+  class backpressure_differential_test extends uvm_test;
+    `uvm_component_utils(backpressure_differential_test)
+    core_env env;virtual simt_core_if vif;
+    int unsigned execute_stall_cycles,writeback_stall_cycles;
+    function new(string name,uvm_component parent);super.new(name,parent);endfunction
+    function void build_phase(uvm_phase phase);
+      super.build_phase(phase);env=core_env::type_id::create("env",this);
+      if(!uvm_config_db#(virtual simt_core_if)::get(this,"","vif",vif))
+        `uvm_fatal("NOVIF","test requires simt_core_if")
+    endfunction
+    task run_phase(uvm_phase phase);
+      arithmetic_sequence test_sequence=
+        arithmetic_sequence::type_id::create("test_sequence");
+      phase.raise_objection(this);
+      test_sequence.start(env.agent.sequencer);
+      fork
+        begin
+          repeat(1200) begin
+            @(negedge vif.clk);
+            if(vif.done||vif.fault) break;
+            if(vif.running) begin
+              vif.execute_completion_ready=($urandom_range(0,3)!=0);
+              vif.commit_ready=($urandom_range(0,2)!=0);
+              if(!vif.execute_completion_ready) execute_stall_cycles++;
+              if(!vif.commit_ready) writeback_stall_cycles++;
+            end
+          end
+          vif.execute_completion_ready=1'b1;
+          vif.commit_ready=1'b1;
+        end
+      join
+      if(!vif.done) `uvm_error("TIMEOUT","backpressure kernel did not drain")
+      if(vif.fault) `uvm_error("FAULT","backpressure kernel faulted")
+      if(execute_stall_cycles==0||writeback_stall_cycles==0)
+        `uvm_error("STALL_COVERAGE","random test did not inject both stall types")
+      if(vif.issue_count!=24||vif.commit_count!=24)
+        `uvm_error("COUNTERS",$sformatf("issue=%0d commit=%0d",
+                   vif.issue_count,vif.commit_count))
+      `uvm_info("BACKPRESSURE",$sformatf("execute_stalls=%0d writeback_stalls=%0d",
+                execute_stall_cycles,writeback_stall_cycles),UVM_LOW)
       phase.drop_objection(this);
     endtask
   endclass

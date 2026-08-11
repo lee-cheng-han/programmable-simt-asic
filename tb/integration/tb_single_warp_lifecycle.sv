@@ -15,6 +15,7 @@ module tb_single_warp_lifecycle;
     .launch_valid_i(launch_valid),.launch_ready_o(launch_ready),
     .launch_pc_i(launch_pc),.running_o(running),.done_o(done),.fault_o(fault),
     .launch_warp_count_i(launch_warp_count),
+    .execute_completion_ready_i(1'b1),.commit_ready_i(1'b1),
     .fault_pc_o(fault_pc),.fault_code_o(fault_code),
     .commit_valid_o(commit_valid),.commit_o(commit),
     .cycle_count_o(cycle_count),.issue_count_o(issue_count),

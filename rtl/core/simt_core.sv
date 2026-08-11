@@ -12,6 +12,8 @@ module simt_core #(
   output logic launch_ready_o,
   input  logic [31:0] launch_pc_i,
   input  logic [2:0] launch_warp_count_i,
+  input  logic execute_completion_ready_i,
+  input  logic commit_ready_i,
   output logic running_o,
   output logic done_o,
   output logic fault_o,
@@ -91,8 +93,11 @@ module simt_core #(
   logic [MULTIPLIER_LATENCY-1:0] mul_stage_valid;
   logic [2:0] source_valid, source_ready;
   completion_record_t sources [3];
-  logic completion_v, completion_ready;
+  logic completion_v, completion_accept, writeback_enqueue_ready;
   completion_record_t completion;
+  logic writeback_completion_v, writeback_completion_ready;
+  completion_record_t writeback_completion;
+  logic [1:0] writeback_occupancy;
   logic [1:0] selected_completion_source;
 
   logic wb_commit_v, wb_gpr_v, wb_pred_v;
@@ -351,13 +356,22 @@ module simt_core #(
     .clk(clk), .rst(rst), .clear_i(clear_i || fatal_now),
     .source_valid_i(source_valid), .source_ready_o(source_ready),
     .source_completion_i(sources), .completion_valid_o(completion_v),
-    .completion_ready_i(completion_ready), .completion_o(completion),
+    .completion_ready_i(completion_accept), .completion_o(completion),
     .selected_source_o(selected_completion_source));
+  completion_queue writeback_queue_u (
+    .clk(clk), .rst(rst), .flush_i(clear_i || fatal_now),
+    .completion_valid_i(completion_v && execute_completion_ready_i),
+    .completion_ready_o(writeback_enqueue_ready),
+    .completion_i(completion),
+    .completion_valid_o(writeback_completion_v),
+    .completion_ready_i(writeback_completion_ready),
+    .completion_o(writeback_completion), .occupancy_o(writeback_occupancy));
   architectural_writeback wb_u (
     .fatal_i(fatal_now), .current_epoch_i(epoch_q),
-    .completion_valid_i(completion_v),
-    .completion_ready_o(completion_ready), .completion_i(completion),
-    .commit_valid_o(wb_commit_v), .commit_ready_i(1'b1),
+    .completion_valid_i(writeback_completion_v),
+    .completion_ready_o(writeback_completion_ready),
+    .completion_i(writeback_completion),
+    .commit_valid_o(wb_commit_v), .commit_ready_i(commit_ready_i),
     .commit_o(commit_o), .stale_cancel_o(stale_cancel),
     .gpr_write_valid_o(wb_gpr_v), .gpr_write_warp_o(wb_gpr_warp),
     .gpr_write_reg_o(wb_gpr_reg), .gpr_write_mask_o(wb_gpr_mask),
@@ -402,12 +416,15 @@ module simt_core #(
     end
   end
 
+  assign completion_accept = execute_completion_ready_i &&
+                             writeback_enqueue_ready;
   assign busy_program_fault = prog_valid_i && launched_q;
   assign launch_ready_o = !launched_q && !fault_valid &&
                           launch_warp_count_i >= 3'd1 &&
                           launch_warp_count_i <= 3'(WARPS) &&
                           alu_occupancy == 0 && mul_occupancy == 0 &&
-                          mul_stage_valid == 0 && !completion_v;
+                          mul_stage_valid == 0 && !completion_v &&
+                          writeback_occupancy == 0;
   assign running_o = launched_q && !done_q && !fault_valid;
   assign done_o = done_q;
   assign fault_o = fault_valid;
@@ -483,7 +500,8 @@ module simt_core #(
       end else if (launched_q && !done_q && !fault_valid) begin
         cycle_count_o <= cycle_count_o + 1'b1;
         if (issue_fire) issue_count_o <= issue_count_o + 1'b1;
-        if (wb_commit_v) commit_count_o <= commit_count_o + 1'b1;
+        if (wb_commit_v && commit_ready_i)
+          commit_count_o <= commit_count_o + 1'b1;
       end
 
       if (issue_fire) begin
@@ -559,6 +577,7 @@ module simt_core #(
 
       if (launched_q && warp_valid_q == '0 && alu_occupancy == 0 &&
           mul_occupancy == 0 && mul_stage_valid == '0 && !completion_v &&
+          writeback_occupancy == 0 &&
           gpr_pending == '0 && pred_pending == '0 && !fatal_now)
         done_q <= 1'b1;
     end

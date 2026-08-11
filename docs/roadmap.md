@@ -176,17 +176,22 @@ programming and launch, monitors architectural commits, checks per-warp sequence
 continuity and drained counters, emits the canonical trace, and compares it with
 the independent C++ model. A legal constrained-random integer/dependency
 sequence, clear/relaunch virtual sequence, architectural coverage subscriber,
-seeded five-run entry point, and per-run artifact layout compile and elaborate.
-Runtime seed results, expanded structured-control/lifecycle randomness, coverage
-analysis, and backpressure injection remain open.
+seeded regression entry point, and per-run artifact layout run under XSim 2026.1.
+Two reproducible seeds pass for legal dependency programs and independent
+execution-completion/writeback backpressure, including 60- and 48-event random
+traces plus 24-event stalled traces. Stalled grants remain stable, an elastic
+writeback boundary decouples the ready domains, handshake assertions pass, and
+stall coverage is sampled. Expanded structured-control/lifecycle randomness,
+coverage analysis, bounded proofs, and mutation testing remain open.
 
 The class-based verification work proceeds through four explicit closure phases:
 
-1. **Environment foundation — current.** Preserve the core agent, driver,
+1. **Environment foundation — complete.** Preserve the core agent, driver,
    monitor, scoreboard, directed sequence, canonical trace export, and
    independent-model differential test as a continuously passing smoke gate.
-2. **Random stimulus and observability — next.** Add constrained-random legal
-   integer/dependency, predication, structured-control, lifecycle, and fault
+2. **Random stimulus and observability — in progress.** Legal integer dependency
+   generation and independent completion/writeback stalls now pass differential
+   simulation. Add predication, structured-control, lifecycle, and fault
    sequences; virtual sequences coordinating programming, launch, clear,
    recovery, and backpressure; functional coverage tied to architectural risk;
    and simulation assertions for the exercised protocols. Every failure must

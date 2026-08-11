@@ -310,11 +310,12 @@ void MultiWarpEmulator::dump_trace(const std::string& path) const {
          << std::setw(8) << event.instruction << ' '
          << std::setw(2) << unsigned(event.active) << ' '
          << std::setw(2) << unsigned(event.write_mask) << ' '
-         << unsigned(event.writes_gpr) << ' ' << unsigned(event.destination)
+         << unsigned(event.writes_gpr) << ' '
+         << unsigned(event.writes_gpr ? event.destination : 0)
          << ' ' << std::setw(2) << unsigned(event.gpr_mask);
     for (auto value : event.gpr_data) file << ' ' << std::setw(8) << value;
     file << ' ' << unsigned(event.writes_pred) << ' '
-         << unsigned(event.destination & 3) << ' '
+         << unsigned(event.writes_pred ? (event.destination & 3) : 0) << ' '
          << std::setw(2) << unsigned(event.pred_mask) << ' '
          << std::setw(2) << unsigned(event.pred_data) << '\n';
   }

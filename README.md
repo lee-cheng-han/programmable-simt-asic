@@ -14,9 +14,9 @@ checkable architectural behavior.
 ```text
 Release stage:  Pre-memory stabilization and implementation checkpoint
 Completed:      Core; reconvergence; buffered frontend; four-warp reference traces
-Verified:       Python, C++, Verilator, architectural trace, and XSim components
-In progress:    SRAM selection, mid-flight cancellation modeling, and early synthesis
-Next:           Random UVM, coverage, backpressure, and early implementation checkpoint
+Verified:       Python, C++, Verilator, XSim UVM, random differential traces, and backpressure
+In progress:    SRAM selection, lifecycle randomness, coverage analysis, and early synthesis
+Next:           Structured-control UVM, coverage closure, formal, and implementation checkpoint
 Not started:    Memory system, DFT, physical implementation
 ```
 
@@ -80,8 +80,7 @@ make xsim-smoke
 
 Requirements are Python 3.8+, a C++17 compiler, GNU Make, Verilator 5+, and
 Yosys with the slang frontend for the optional synthesis checkpoint. Vivado/XSim
-2025.2 with UVM 1.2 provides the optional class-based differential compile and
-elaboration check.
+2026.1 with UVM 1.2 is the verified class-based differential runtime.
 No package is installed automatically by repository scripts.
 UVM runs accept `UVM_TEST` and `SEED`; their programs, traces, comparison result,
 and simulator logs are retained under `build/uvm/runs/`.

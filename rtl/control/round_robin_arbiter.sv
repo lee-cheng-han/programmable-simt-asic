@@ -12,27 +12,45 @@ module round_robin_arbiter #(
   input  logic                  grant_accept_i
 );
   logic [INDEX_W-1:0] priority_q;
+  logic held_valid_q;
+  logic [INDEX_W-1:0] held_index_q;
+  logic [INDEX_W-1:0] candidate;
 
   always_comb begin
     grant_valid_o = 1'b0;
     grant_index_o = priority_q;
     grant_onehot_o = '0;
-    for (int unsigned offset = 0; offset < REQUESTERS; offset++) begin
-      logic [INDEX_W-1:0] candidate;
-      candidate = INDEX_W'((int'(priority_q) + offset) % REQUESTERS);
-      if (!grant_valid_o && request_i[candidate]) begin
-        grant_valid_o = 1'b1;
-        grant_index_o = INDEX_W'(candidate);
-        grant_onehot_o[candidate] = 1'b1;
+    candidate = priority_q;
+    if (held_valid_q) begin
+      grant_valid_o = 1'b1;
+      grant_index_o = held_index_q;
+      grant_onehot_o[held_index_q] = 1'b1;
+    end else begin
+      for (int unsigned offset = 0; offset < REQUESTERS; offset++) begin
+        candidate = INDEX_W'((int'(priority_q) + offset) % REQUESTERS);
+        if (!grant_valid_o && request_i[candidate]) begin
+          grant_valid_o = 1'b1;
+          grant_index_o = INDEX_W'(candidate);
+          grant_onehot_o[candidate] = 1'b1;
+        end
       end
     end
   end
 
   always_ff @(posedge clk) begin
-    if (rst || clear_i)
+    if (rst || clear_i) begin
       priority_q <= '0;
-    else if (grant_valid_o && grant_accept_i)
-      priority_q <= INDEX_W'((int'(grant_index_o) + 1) % REQUESTERS);
+      held_valid_q <= 1'b0;
+      held_index_q <= '0;
+    end else if (grant_valid_o) begin
+      if (grant_accept_i) begin
+        priority_q <= INDEX_W'((int'(grant_index_o) + 1) % REQUESTERS);
+        held_valid_q <= 1'b0;
+      end else begin
+        held_valid_q <= 1'b1;
+        held_index_q <= grant_index_o;
+      end
+    end
   end
 
 `ifndef SYNTHESIS
