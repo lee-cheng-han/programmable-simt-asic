@@ -6,6 +6,7 @@ python3 tools/gen_isa_sv.py isa/isa.json build/simt_isa_pkg.sv
 xvlog -sv build/simt_isa_pkg.sv rtl/simt_gpu_pkg.sv \
   rtl/frontend/instruction_decoder.sv \
   rtl/frontend/instruction_memory.sv rtl/frontend/instruction_fetch.sv \
+  rtl/frontend/instruction_sram_adapter.sv \
   rtl/frontend/warp_instruction_frontend.sv \
   rtl/register_file/vector_register_file.sv \
   rtl/register_file/predicate_register_file.sv \

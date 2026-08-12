@@ -12,15 +12,17 @@ checkable architectural behavior.
 ## Current status
 
 ```text
-Release stage:  Pre-memory stabilization and implementation checkpoint
-Completed:      Core; reconvergence; buffered frontend; four-warp reference traces
-Verified:       Python, C++, Verilator, XSim UVM, random differential traces, and backpressure
-In progress:    SRAM selection, lifecycle/fault randomness, coverage analysis, and early synthesis
-Next:           Lifecycle recovery UVM, coverage closure, formal, and implementation checkpoint
+Release stage:  Pre-memory stabilization closed; memory implementation next
+Completed:      Core; reconvergence; SRAM-backed frontend; four-warp reference traces
+Verified:       21-run XSim differential matrix, 43/43 risk bins, three formal proofs, and 9/9 mutation detection
+In progress:    Memory-system RTL and verification
+Next:           Banked scratchpad/shared memory, trackers, replay, barriers, and memory completion
 Not started:    Memory system, DFT, physical implementation
 ```
 
 The authoritative contract is [docs/architecture.md](docs/architecture.md).
+[Pre-memory closure evidence](docs/pre_memory_closure.md) records the passing
+regression, coverage, formal, mutation, synthesis, and placement gates.
 [Measured warp-interleaving results](docs/performance_results.md) report the
 checked-in one-warp versus four-warp arithmetic baseline.
 Supporting documents explain individual topics but cannot override it.
@@ -71,8 +73,13 @@ make test
 make uvm-compile
 make uvm-differential
 make uvm-regression UVM_SEEDS="1 2 3 4 5"
+make coverage-report
+make formal
+make mutation-smoke
 make synth-elab
 make synth
+make synth-mapped
+make integrated-floorplan
 make assemble PROGRAM=tb/programs/vector_add.s
 build/simt-emulator build/vector_add.bin --memory tb/programs/vector_add.mem
 make xsim-smoke

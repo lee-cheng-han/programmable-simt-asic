@@ -14,8 +14,10 @@ SIMT stacks, and epoch/warp/sequence-keyed arithmetic, divergence, and drained
 clear/relaunch traces. It does not yet model completion-queue arbitration,
 mid-flight epoch cancellation, multi-warp memory ordering, or barriers. The core uses one shared instruction port with
 round-robin arbitration, a tagged in-flight response, and one stable buffer per
-warp. Its storage array is still behavioral until a qualified open-PDK SRAM macro
-and all required physical/timing views are selected. General/shared memory
+warp. Its storage array remains behavioral until the selected macro adapter is
+integrated. IHP SG13G2 SRAM physical, simulation, and three-corner timing views
+are machine-checked, and a macro-only trial floorplan passes; integrated mapped
+timing, PDN, and routing are not yet evidence. General/shared memory
 trackers, bank replay, barriers, Wishbone, DFT, bounded formal runs, and physical
 implementation are not yet integrated.
 
@@ -27,7 +29,13 @@ commit path.
 
 The UVM 1.2 environment runs with XSim 2026.1 on the current host. Directed,
 legal constrained-random, and randomized execution/writeback-backpressure tests
-produce model-matched traces and retain per-seed coverage databases. Coverage
-Structured shallow and nested control flow passes differential testing with one
-through four resident warps. Coverage database merging and numerical closure,
-randomized fault recovery, bounded proofs, and mutation results are not yet claimed.
+produce model-matched traces and retain portable per-seed coverage manifests. Structured
+shallow and nested control flow passes differential testing with one
+through four resident warps. A directed class-based test also verifies stack-
+underflow side-effect suppression, sticky-fault clear, and an epoch-1 four-warp
+recovery relaunch. The portable report covers all 43 approved pre-memory risk
+bins across opcode, warp, resident-warp count, completion source, mask class,
+and execution/writeback stall state. Three bounded/exhaustive component proofs
+pass, and the mutation suite detects 9/9 injected defects with no survivors or
+invalid mutants. These results close the pre-memory gate; memory-system behavior,
+DFT, routed timing, and signoff are deliberately outside that release boundary.

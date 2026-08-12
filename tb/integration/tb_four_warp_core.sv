@@ -26,6 +26,7 @@ module tb_four_warp_core;
     .prog_data_i(prog_data), .launch_valid_i(launch_valid),
     .launch_ready_o(launch_ready), .launch_pc_i(launch_pc),
     .launch_warp_count_i(launch_warp_count), .running_o(running),
+    .fetch_response_ready_i(1'b1),
     .execute_completion_ready_i(1'b1), .commit_ready_i(1'b1),
     .done_o(done), .fault_o(fault), .fault_pc_o(fault_pc),
     .fault_code_o(fault_code), .commit_valid_o(commit_valid),

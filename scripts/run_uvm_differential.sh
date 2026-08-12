@@ -55,6 +55,7 @@ sources=(
   "$repo_root/rtl/execute/architectural_writeback.sv"
   "$repo_root/rtl/control/dependency_scoreboard.sv"
   "$repo_root/rtl/control/fatal_fault_controller.sv"
+  "$repo_root/rtl/frontend/instruction_sram_adapter.sv"
   "$repo_root/rtl/frontend/warp_instruction_frontend.sv"
   "$repo_root/rtl/core/simt_core.sv"
   "$repo_root/tb/uvm/simt_core_if.sv"
@@ -74,13 +75,21 @@ if [[ "${UVM_ELAB_ONLY:-0}" == 1 ]]; then
   exit 0
 fi
 
-rm -f "$repo_root/build/uvm_four_warp.trace" "$repo_root/build/uvm/run.cfg"
-"$xsim_bin" tb_simt_core_uvm_sim --runall --onfinish quit \
-  --testplusarg "UVM_TESTNAME=$uvm_test" --sv_seed "$seed" \
-  --testplusarg "WARP_COUNT=$warp_override" \
-  --testplusarg "NESTED=$nested_override" \
-  --cov_db_dir "$repo_root/build/uvm/coverage" \
-  --cov_db_name "${uvm_test}_${seed}" --log "$run_dir/xsim.log"
+rm -f "$repo_root/build/uvm_four_warp.trace" "$repo_root/build/uvm/run.cfg" \
+  "$repo_root/build/uvm/portable_coverage.txt"
+xsim_args=(
+  tb_simt_core_uvm_sim --runall --onfinish quit
+  --testplusarg "UVM_TESTNAME=$uvm_test" --sv_seed "$seed"
+  --testplusarg "WARP_COUNT=$warp_override"
+  --testplusarg "NESTED=$nested_override"
+  --log "$run_dir/xsim.log"
+)
+if [[ "${XSIM_NATIVE_COVERAGE:-0}" == 1 ]]; then
+  mkdir -p "$repo_root/build/uvm/coverage"
+  xsim_args+=(--cov_db_dir "$repo_root/build/uvm/coverage"
+    --cov_db_name "${uvm_test}_${seed}")
+fi
+"$xsim_bin" "${xsim_args[@]}"
 
 if grep -Eq 'UVM_(ERROR|FATAL) :[[:space:]]*[1-9]|^(Error:|ERROR: Assertion failed)' "$run_dir/xsim.log"; then
   echo "UVM/XSim reported an error; see $run_dir/xsim.log" >&2
@@ -94,21 +103,32 @@ trace="$repo_root/build/uvm_four_warp.trace"
 }
 
 model_warps=4
+model_initial_epoch=0
 if [[ -f "$repo_root/build/uvm/run.cfg" ]]; then
-  read -r model_warps <"$repo_root/build/uvm/run.cfg"
+  read -r model_warps model_initial_epoch <"$repo_root/build/uvm/run.cfg"
 fi
+model_initial_epoch="${model_initial_epoch:-0}"
 if [[ ! "$model_warps" =~ ^[1-4]$ ]]; then
   echo "invalid generated warp count: $model_warps" >&2
+  exit 1
+fi
+if [[ ! "$model_initial_epoch" =~ ^[0-9]+$ ]] ||
+   (( model_initial_epoch < 0 || model_initial_epoch > 63 )); then
+  echo "invalid generated initial epoch: $model_initial_epoch" >&2
   exit 1
 fi
 
 python3 "$repo_root/tools/hex_words_to_bin.py" \
   "$repo_root/build/uvm/program.hex" "$repo_root/build/uvm/program.bin"
 "$repo_root/build/simt-emulator" "$repo_root/build/uvm/program.bin" --warps "$model_warps" \
+  --initial-epoch "$model_initial_epoch" \
   --trace "$repo_root/build/uvm/model.trace"
 python3 "$repo_root/scripts/compare_arch_traces.py" --keyed \
   "$repo_root/build/uvm/model.trace" "$trace" >"$run_dir/comparison.txt"
 cp "$repo_root/build/uvm/program.hex" "$repo_root/build/uvm/program.bin" \
   "$repo_root/build/uvm/model.trace" "$trace" "$repo_root/build/uvm/run.cfg" \
   "$run_dir/"
+if [[ -f "$repo_root/build/uvm/portable_coverage.txt" ]]; then
+  cp "$repo_root/build/uvm/portable_coverage.txt" "$run_dir/"
+fi
 sed -n '1,20p' "$run_dir/comparison.txt"

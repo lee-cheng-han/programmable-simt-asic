@@ -31,6 +31,7 @@ package simt_core_uvm_pkg;
       32'h74040001, 32'h38080003, 32'h040c4800,
       32'h0c10c800, 32'h04150c00, 32'h78000000
     };
+    int unsigned initial_epoch;
     function new(string name="arithmetic_sequence"); super.new(name); endfunction
     task body();
       core_command item;
@@ -38,7 +39,7 @@ package simt_core_uvm_pkg;
       int config_file=$fopen("build/uvm/run.cfg","w");
       if(!program_file) `uvm_fatal("PROGRAM","cannot write generated program")
       if(!config_file) `uvm_fatal("PROGRAM","cannot write run configuration")
-      $fdisplay(config_file,"4");
+      $fdisplay(config_file,"4 %0d",initial_epoch);
       $fclose(config_file);
       foreach (PROGRAM[index]) begin
         $fdisplay(program_file,"%08x",PROGRAM[index]);
@@ -50,6 +51,28 @@ package simt_core_uvm_pkg;
       start_item(item); item.command=CORE_LAUNCH; item.warp_count=3'd4;
       item.launch_pc='0; finish_item(item);
       $fclose(program_file);
+    endtask
+  endclass
+
+  class stack_underflow_sequence extends uvm_sequence #(core_command);
+    `uvm_object_utils(stack_underflow_sequence)
+    function new(string name="stack_underflow_sequence");super.new(name);endfunction
+    task body();
+      core_command item=core_command::type_id::create("underflow_program");
+      start_item(item);item.command=CORE_PROGRAM;item.address=0;
+      item.data=32'h7c000000;finish_item(item);
+      item=core_command::type_id::create("underflow_launch");
+      start_item(item);item.command=CORE_LAUNCH;item.warp_count=1;
+      item.launch_pc=0;finish_item(item);
+    endtask
+  endclass
+
+  class core_clear_sequence extends uvm_sequence #(core_command);
+    `uvm_object_utils(core_clear_sequence)
+    function new(string name="core_clear_sequence");super.new(name);endfunction
+    task body();
+      core_command item=core_command::type_id::create("clear");
+      start_item(item);item.command=CORE_CLEAR;finish_item(item);
     endtask
   endclass
 
@@ -152,6 +175,48 @@ package simt_core_uvm_pkg;
     endtask
   endclass
 
+  class isa_coverage_sequence extends uvm_sequence #(core_command);
+    `uvm_object_utils(isa_coverage_sequence)
+    int unsigned warp_count=4;
+    int unsigned instruction_count;
+    function new(string name="isa_coverage_sequence");super.new(name);endfunction
+    function bit[31:0] rrr(bit[5:0]opcode,bit[3:0]rd,bit[3:0]ra,
+                           bit[3:0]rb);
+      return {opcode,4'b0,rd,ra,rb,10'b0};
+    endfunction
+    task send_word(int unsigned index,bit[31:0]word,int file_handle);
+      core_command item=core_command::type_id::create($sformatf("program_%0d",index));
+      $fdisplay(file_handle,"%08x",word);
+      start_item(item);item.command=CORE_PROGRAM;item.address=6'(index);
+      item.data=word;finish_item(item);
+    endtask
+    task body();
+      core_command launch;
+      bit[31:0] words[$];
+      int program_file=$fopen("build/uvm/program.hex","w");
+      int config_file=$fopen("build/uvm/run.cfg","w");
+      if(!program_file||!config_file)
+        `uvm_fatal("PROGRAM","cannot write ISA-coverage artifacts")
+      $fdisplay(config_file,"%0d",warp_count);$fclose(config_file);
+      words.push_back({6'd14,4'b0,4'd1,4'd0,4'd0,10'd7});
+      words.push_back({6'd14,4'b0,4'd2,4'd0,4'd0,10'd3});
+      for(int unsigned opcode=1;opcode<=13;opcode++) begin
+        if(opcode inside {9,13}) words.push_back(rrr(6'(opcode),4'd3,4'd1,4'd0));
+        else words.push_back(rrr(6'(opcode),4'd3,4'd1,4'd2));
+      end
+      for(int unsigned opcode=16;opcode<=21;opcode++)
+        words.push_back(rrr(6'(opcode),4'd0,4'd1,4'd2));
+      words.push_back({6'd15,1'b1,1'b0,2'd0,4'd3,4'd1,4'd2,10'd0});
+      words.push_back({6'd29,4'b0,4'd4,4'd0,4'd0,10'd3});
+      words.push_back(32'h78000000);
+      foreach(words[index]) send_word(index,words[index],program_file);
+      instruction_count=words.size();$fclose(program_file);
+      launch=core_command::type_id::create("launch");
+      start_item(launch);launch.command=CORE_LAUNCH;
+      launch.warp_count=3'(warp_count);launch.launch_pc='0;finish_item(launch);
+    endtask
+  endclass
+
   class core_driver extends uvm_driver #(core_command);
     `uvm_component_utils(core_driver)
     virtual simt_core_if vif;
@@ -196,8 +261,24 @@ package simt_core_uvm_pkg;
     uvm_analysis_port #(commit_item) analysis_port;
     bit execute_stall_since_commit;
     bit writeback_stall_since_commit;
+    bit allow_expected_fault;
+    bit expected_fault_observed;
+    bit fault_seen;
+    fault_code_t expected_fault_code;
+    fault_code_t sampled_fault_code;
+    covergroup fault_coverage;
+      option.per_instance=1;
+      fault_code: coverpoint sampled_fault_code {
+        bins illegal={FAULT_ILLEGAL_INSTRUCTION};
+        bins unsupported={FAULT_UNSUPPORTED_STAGE};
+        bins stack_overflow={FAULT_SIMT_STACK_OVERFLOW};
+        bins stack_underflow={FAULT_SIMT_STACK_UNDERFLOW};
+        bins control={FAULT_SIMT_CONTROL};
+      }
+    endgroup
     function new(string name,uvm_component parent);
       super.new(name,parent); analysis_port=new("analysis_port",this);
+      fault_coverage=new;
     endfunction
     function void build_phase(uvm_phase phase);
       super.build_phase(phase);
@@ -212,9 +293,15 @@ package simt_core_uvm_pkg;
           execute_stall_since_commit=1'b1;
         if(vif.commit_valid && !vif.commit_ready)
           writeback_stall_since_commit=1'b1;
-        if(vif.fault)
-          `uvm_error("CORE_FAULT",$sformatf("code=%0d pc=%0d",
-                     vif.fault_code,vif.fault_pc))
+        if(vif.fault&&!fault_seen) begin
+          fault_seen=1'b1;sampled_fault_code=vif.fault_code;
+          fault_coverage.sample();
+          if(allow_expected_fault&&vif.fault_code==expected_fault_code)
+            expected_fault_observed=1'b1;
+          else
+            `uvm_error("CORE_FAULT",$sformatf("code=%0d pc=%0d",
+                       vif.fault_code,vif.fault_pc))
+        end else if(!vif.fault) fault_seen=1'b0;
         if(vif.commit_valid && vif.commit_ready) begin
           item=commit_item::type_id::create("commit");
           item.record.valid=vif.commit.valid;
@@ -315,6 +402,13 @@ package simt_core_uvm_pkg;
     bit sampled_writeback_stall;
     bit [2:0] sampled_resident_warps;
     bit [7:0] sampled_mask;
+    bit opcode_seen[64];
+    bit warp_seen[4];
+    bit source_seen[3];
+    bit resident_warps_seen[5];
+    bit mask_class_seen[4];
+    bit execute_stall_seen[2];
+    bit writeback_stall_seen[2];
     covergroup architectural_commits;
       option.per_instance=1;
       opcode: coverpoint sampled_opcode {
@@ -353,6 +447,38 @@ package simt_core_uvm_pkg;
       sampled_resident_warps=t.resident_warps;
       sampled_mask=t.record.write_mask;
       architectural_commits.sample();
+      opcode_seen[sampled_opcode]=1'b1;
+      warp_seen[sampled_warp]=1'b1;
+      source_seen[sampled_source]=1'b1;
+      resident_warps_seen[sampled_resident_warps]=1'b1;
+      execute_stall_seen[sampled_execute_stall]=1'b1;
+      writeback_stall_seen[sampled_writeback_stall]=1'b1;
+      if(sampled_mask==8'h00) mask_class_seen[0]=1'b1;
+      else if(sampled_mask==8'hff) mask_class_seen[1]=1'b1;
+      else if(sampled_mask inside {8'h0f,8'hf0}) mask_class_seen[2]=1'b1;
+      else mask_class_seen[3]=1'b1;
+    endfunction
+    function void final_phase(uvm_phase phase);
+      int file_handle=$fopen("build/uvm/portable_coverage.txt","w");
+      if(!file_handle) begin
+        `uvm_error("COVERAGE","cannot write portable coverage manifest")
+        return;
+      end
+      foreach(opcode_seen[index]) if(opcode_seen[index])
+        $fdisplay(file_handle,"opcode %0d",index);
+      foreach(warp_seen[index]) if(warp_seen[index])
+        $fdisplay(file_handle,"warp %0d",index);
+      foreach(source_seen[index]) if(source_seen[index])
+        $fdisplay(file_handle,"source %0d",index);
+      foreach(resident_warps_seen[index]) if(resident_warps_seen[index])
+        $fdisplay(file_handle,"resident_warps %0d",index);
+      foreach(mask_class_seen[index]) if(mask_class_seen[index])
+        $fdisplay(file_handle,"mask_class %0d",index);
+      foreach(execute_stall_seen[index]) if(execute_stall_seen[index])
+        $fdisplay(file_handle,"execute_stall %0d",index);
+      foreach(writeback_stall_seen[index]) if(writeback_stall_seen[index])
+        $fdisplay(file_handle,"writeback_stall %0d",index);
+      $fclose(file_handle);
     endfunction
   endclass
 
@@ -541,6 +667,168 @@ package simt_core_uvm_pkg;
       `uvm_info("STRUCTURED_CONTROL",$sformatf("nested=%0d warps=%0d commits=%0d",
                 test_sequence.nested,test_sequence.warp_count,
                 vif.commit_count),UVM_LOW)
+      phase.drop_objection(this);
+    endtask
+  endclass
+
+  class isa_coverage_differential_test extends uvm_test;
+    `uvm_component_utils(isa_coverage_differential_test)
+    core_env env;virtual simt_core_if vif;
+    function new(string name,uvm_component parent);super.new(name,parent);endfunction
+    function void build_phase(uvm_phase phase);
+      super.build_phase(phase);env=core_env::type_id::create("env",this);
+      if(!uvm_config_db#(virtual simt_core_if)::get(this,"","vif",vif))
+        `uvm_fatal("NOVIF","test requires simt_core_if")
+    endfunction
+    task run_phase(uvm_phase phase);
+      isa_coverage_sequence test_sequence=
+        isa_coverage_sequence::type_id::create("test_sequence");
+      int warp_override;
+      phase.raise_objection(this);
+      if($value$plusargs("WARP_COUNT=%d",warp_override)&&warp_override!=0)
+        test_sequence.warp_count=warp_override;
+      if(test_sequence.warp_count<1||test_sequence.warp_count>4)
+        `uvm_fatal("CONFIG","WARP_COUNT must be 1..4")
+      env.scoreboard.expected_warps=test_sequence.warp_count;
+      test_sequence.start(env.agent.sequencer);
+      repeat(3000) begin @(negedge vif.clk);if(vif.done||vif.fault)break;end
+      if(!vif.done||vif.fault) `uvm_error("ISA_COVERAGE","kernel failed")
+      if(vif.commit_count!=64'(test_sequence.instruction_count*test_sequence.warp_count))
+        `uvm_error("COUNTERS",$sformatf("instructions=%0d warps=%0d commits=%0d",
+          test_sequence.instruction_count,test_sequence.warp_count,vif.commit_count))
+      `uvm_info("ISA_COVERAGE",$sformatf("warps=%0d commits=%0d",
+                test_sequence.warp_count,vif.commit_count),UVM_LOW)
+      phase.drop_objection(this);
+    endtask
+  endclass
+
+  class fault_clear_relaunch_differential_test extends uvm_test;
+    `uvm_component_utils(fault_clear_relaunch_differential_test)
+    core_env env;virtual simt_core_if vif;
+    function new(string name,uvm_component parent);super.new(name,parent);endfunction
+    function void build_phase(uvm_phase phase);
+      super.build_phase(phase);env=core_env::type_id::create("env",this);
+      if(!uvm_config_db#(virtual simt_core_if)::get(this,"","vif",vif))
+        `uvm_fatal("NOVIF","test requires simt_core_if")
+    endfunction
+    task run_phase(uvm_phase phase);
+      stack_underflow_sequence fault_sequence=
+        stack_underflow_sequence::type_id::create("fault_sequence");
+      core_clear_sequence clear_sequence=
+        core_clear_sequence::type_id::create("clear_sequence");
+      arithmetic_sequence recovery_sequence=
+        arithmetic_sequence::type_id::create("recovery_sequence");
+      phase.raise_objection(this);
+      env.agent.monitor.allow_expected_fault=1'b1;
+      env.agent.monitor.expected_fault_code=FAULT_SIMT_STACK_UNDERFLOW;
+      fault_sequence.start(env.agent.sequencer);
+      repeat(100) begin @(negedge vif.clk); if(vif.fault) break; end
+      if(!vif.fault||vif.fault_code!=FAULT_SIMT_STACK_UNDERFLOW||vif.fault_pc!=0)
+        `uvm_error("FAULT","expected stack-underflow fault was not observed")
+      if(vif.issue_count!=0||vif.commit_count!=0||vif.commit_valid)
+        `uvm_error("FAULT_SIDE_EFFECT",$sformatf("issue=%0d commit=%0d valid=%0d",
+          vif.issue_count,vif.commit_count,vif.commit_valid))
+      clear_sequence.start(env.agent.sequencer);
+      repeat(10) begin @(negedge vif.clk); if(!vif.fault) break; end
+      if(vif.fault) `uvm_error("RECOVERY","clear did not remove sticky fault")
+      recovery_sequence.initial_epoch=1;
+      recovery_sequence.start(env.agent.sequencer);
+      repeat(500) begin @(negedge vif.clk); if(vif.done||vif.fault) break; end
+      if(!vif.done||vif.fault) `uvm_error("RECOVERY","recovery kernel failed")
+      if(vif.issue_count!=24||vif.commit_count!=24)
+        `uvm_error("COUNTERS",$sformatf("issue=%0d commit=%0d",
+                   vif.issue_count,vif.commit_count))
+      if(!env.agent.monitor.expected_fault_observed)
+        `uvm_error("FAULT_COVERAGE","monitor missed expected fault")
+      `uvm_info("FAULT_RECOVERY","stack underflow suppressed and epoch-1 relaunch drained",UVM_LOW)
+      phase.drop_objection(this);
+    endtask
+  endclass
+
+  class midflight_clear_relaunch_differential_test extends uvm_test;
+    `uvm_component_utils(midflight_clear_relaunch_differential_test)
+    core_env env;virtual simt_core_if vif;
+    function new(string name,uvm_component parent);super.new(name,parent);endfunction
+    function void build_phase(uvm_phase phase);
+      super.build_phase(phase);env=core_env::type_id::create("env",this);
+      if(!uvm_config_db#(virtual simt_core_if)::get(this,"","vif",vif))
+        `uvm_fatal("NOVIF","test requires simt_core_if")
+    endfunction
+    task run_phase(uvm_phase phase);
+      arithmetic_sequence cancelled_sequence=
+        arithmetic_sequence::type_id::create("cancelled_sequence");
+      core_clear_sequence clear_sequence=
+        core_clear_sequence::type_id::create("clear_sequence");
+      arithmetic_sequence recovery_sequence=
+        arithmetic_sequence::type_id::create("recovery_sequence");
+      int unsigned issue_before_clear;
+      phase.raise_objection(this);
+      vif.execute_completion_ready=1'b0;
+      vif.commit_ready=1'b0;
+      cancelled_sequence.start(env.agent.sequencer);
+      repeat(100) begin
+        @(negedge vif.clk);
+        if(vif.issue_count>=3||vif.fault) break;
+      end
+      issue_before_clear=vif.issue_count;
+      if(issue_before_clear<2)
+        `uvm_error("CANCEL_SETUP","clear did not encounter outstanding work")
+      if(vif.commit_count!=0||vif.commit_valid)
+        `uvm_error("CANCEL_SETUP","work committed before cancellation")
+      clear_sequence.start(env.agent.sequencer);
+      @(negedge vif.clk);
+      if(vif.running||vif.done||vif.fault||vif.issue_count!=0||
+         vif.commit_count!=0||vif.commit_valid)
+        `uvm_error("CANCEL","clear did not atomically quiesce the core")
+      vif.execute_completion_ready=1'b1;
+      vif.commit_ready=1'b1;
+      recovery_sequence.initial_epoch=1;
+      recovery_sequence.start(env.agent.sequencer);
+      repeat(500) begin @(negedge vif.clk); if(vif.done||vif.fault) break; end
+      if(!vif.done||vif.fault) `uvm_error("RECOVERY","recovery kernel failed")
+      if(vif.issue_count!=24||vif.commit_count!=24)
+        `uvm_error("COUNTERS",$sformatf("issue=%0d commit=%0d",
+                   vif.issue_count,vif.commit_count))
+      `uvm_info("MIDFLIGHT_CLEAR",$sformatf(
+        "cancelled_issues=%0d epoch-1 relaunch commits=%0d",
+        issue_before_clear,vif.commit_count),UVM_LOW)
+      phase.drop_objection(this);
+    endtask
+  endclass
+
+  class fetch_backpressure_differential_test extends uvm_test;
+    `uvm_component_utils(fetch_backpressure_differential_test)
+    core_env env;virtual simt_core_if vif;
+    int unsigned fetch_stall_cycles;
+    function new(string name,uvm_component parent);super.new(name,parent);endfunction
+    function void build_phase(uvm_phase phase);
+      super.build_phase(phase);env=core_env::type_id::create("env",this);
+      if(!uvm_config_db#(virtual simt_core_if)::get(this,"","vif",vif))
+        `uvm_fatal("NOVIF","test requires simt_core_if")
+    endfunction
+    task run_phase(uvm_phase phase);
+      arithmetic_sequence test_sequence=
+        arithmetic_sequence::type_id::create("test_sequence");
+      phase.raise_objection(this);
+      test_sequence.start(env.agent.sequencer);
+      repeat(1000) begin
+        @(negedge vif.clk);
+        if(vif.done||vif.fault) break;
+        if(vif.running) begin
+          vif.fetch_response_ready=($urandom_range(0,2)!=0);
+          if(!vif.fetch_response_ready) fetch_stall_cycles++;
+        end
+      end
+      vif.fetch_response_ready=1'b1;
+      if(!vif.done) `uvm_error("TIMEOUT","fetch-stalled kernel did not drain")
+      if(vif.fault) `uvm_error("FAULT","fetch-stalled kernel faulted")
+      if(fetch_stall_cycles==0)
+        `uvm_error("STALL_COVERAGE","no fetch response stalls were injected")
+      if(vif.issue_count!=24||vif.commit_count!=24)
+        `uvm_error("COUNTERS",$sformatf("issue=%0d commit=%0d",
+                   vif.issue_count,vif.commit_count))
+      `uvm_info("FETCH_BACKPRESSURE",$sformatf("stall_cycles=%0d",
+                fetch_stall_cycles),UVM_LOW)
       phase.drop_objection(this);
     endtask
   endclass

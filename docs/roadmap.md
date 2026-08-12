@@ -11,9 +11,9 @@ memory contracts freeze.
 
 | Order | Release group | Current state | Required before shared memory |
 |---:|---|---|---|
-| 1 | Processor architecture foundation | Complete except SRAM feasibility: consolidated core, four-warp execution, nested reconvergence, fatal bounds, and emulator trace agreement pass | Select usable SRAM views and preserve the single authoritative core |
-| 2 | Frontend and model stabilization | In progress: buffered fetch plus four-warp arithmetic/divergence reference traces pass | Select/qualify SRAM, close lifecycle/random traces, synthesis, reset review, and trial floorplan |
-| 3 | Pre-memory verification | Not started | Backpressure stress, bounded proofs, mutation testing, and reproducible reports |
+| 1 | Processor architecture foundation | Complete: consolidated core, four-warp execution, nested reconvergence, fatal bounds, emulator trace agreement, and provisional IHP SRAM views pass | Preserve the single authoritative core and selected macro contract |
+| 2 | Frontend and model stabilization | Complete: SRAM-backed fetch, randomized response backpressure, lifecycle cancellation, mapped synthesis, and integrated legal placement | Preserve as a regression gate during memory integration |
+| 3 | Pre-memory verification | Complete: 21-run differential matrix, 43/43 approved risk bins, three formal proofs, and 9/9 mutations detected | Preserve closure while extending coverage for memory behavior |
 | 4 | Memory system | Blocked by groups above | Begin shared memory, barriers, and scratchpad only after stabilization closes |
 
 Performance counters remain limited to measurements needed for current claims.
@@ -153,10 +153,12 @@ frontend without errors or warnings. A generic behavioral-array trial reached
 25,298 inputs, and 3,266 outputs. This is diagnostic evidence, not a PPA result:
 the replicated register file and behavioral storage structures dominate the
 unmapped design. `make synth-elab` provides the bounded frontend gate and
-`make synth` preserves the full generic experiment and its report. SRAM macro
-qualification, memory wrappers, register-file implementation review, mapped
-timing/area, and trial floorplanning therefore remain required before this
-checkpoint closes.
+`make synth` preserves the full generic experiment and its report. The IHP
+SG13G2 64×64 and 256×64 SRAM artifact sets now pass automated LEF, GDS, CDL,
+Verilog, three-corner Liberty, BIST-port, and power-pin checks. A 17-macro
+OpenROAD trial reports 0.8583 mm² of macro area and legal placement in a
+1.70 mm × 0.80 mm die. Memory wrappers, register-file implementation review,
+integrated mapped timing/area, halos, PDN, and routing remain open.
 
 ### Pre-memory verification gate
 
@@ -183,31 +185,32 @@ traces plus 24-event stalled traces. Stalled grants remain stable, an elastic
 writeback boundary decouples the ready domains, handshake assertions pass, and
 stall coverage is sampled. Shallow and nested structured-control programs also
 pass model comparison with one through four resident warps, including 19, 22,
-33, 38, and 44-event traces. Lifecycle/fault randomness, coverage analysis,
-bounded proofs, and mutation testing remain open.
+33, 38, and 44-event traces. Twelve-cycle temporal-induction runs pass for the
+four-request scheduler and three-request completion arbiter, covering one-hot
+selection, request validity, stalled stability, and bounded accepted-grant wait.
+The deterministic mutation suite detects 9/9 scheduler, scoreboard-owner, FIFO-
+ordering/capacity, multiplier-datapath, stale-writeback, branch-mask, early-done,
+and stack-overflow defects. Mid-flight host clear now
+cancels accepted but uncommitted work and a four-warp epoch-1 relaunch drains
+differentially. Random fetch-response backpressure is also model matched. A
+portable 23-manifest coverage merge reports 43/43 approved risk bins (100%):
+opcode, warp, resident-warp count, source, mask class, and execution/writeback
+stall bins are closed. Twelve-cycle induction proves both arbitration uses, and
+an exhaustive writeback proof covers fatal priority, stale epochs, handshake,
+and side-effect gating. The pre-memory verification gate is closed.
 
 The class-based verification work proceeds through four explicit closure phases:
 
 1. **Environment foundation — complete.** Preserve the core agent, driver,
    monitor, scoreboard, directed sequence, canonical trace export, and
    independent-model differential test as a continuously passing smoke gate.
-2. **Random stimulus and observability — in progress.** Legal integer dependency,
-   structured-control, resident-warp variation, and independent completion/writeback
-   stalls now pass differential simulation. Add lifecycle and fault
-   sequences; virtual sequences coordinating programming, launch, clear,
-   recovery, and backpressure; functional coverage tied to architectural risk;
-   and simulation assertions for the exercised protocols. Every failure must
-   preserve its seed, generated program, logs, and first-mismatch traces.
-3. **Regression and analysis.** Run deterministic multi-seed regressions, merge
-   coverage databases, publish coverage reports, and classify each hole as
-   missing stimulus, generator defect, sampling defect, unreachable behavior,
-   unsupported behavior, RTL defect, or coverage-model defect. Add targeted
-   sequences for legitimate holes and documented exclusions for unreachable
-   combinations.
-4. **Verification closure.** Close the approved coverage model, promote critical
-   simulation assertions into bounded formal properties, execute the mutation
-   suite, publish injected/detected/surviving counts, and map every surviving
-   defect or waiver back to a requirement, test, property, owner, and reason.
+2. **Random stimulus and observability — complete.** Legal dependencies,
+   structured control, resident-warp variation, three backpressure boundaries,
+   fatal recovery, and outstanding-work cancellation pass differential checking.
+3. **Regression and analysis — complete.** Seven classes across three seeds pass;
+   portable coverage is 43/43 approved bins with no exclusions or holes.
+4. **Verification closure — complete.** Three formal proofs pass and all 9
+   injected mutations are detected, with no survivors or invalid mutants.
 
 The first random release must cover one through four resident warps, RAW/WAW and
 independent instruction streams, ALU/multiplier dependencies, predicate mask

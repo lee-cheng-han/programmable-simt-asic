@@ -1,6 +1,7 @@
 module simt_core #(
   parameter int unsigned IMEM_WORDS = 64,
-  parameter int unsigned IMEM_ADDR_W = $clog2(IMEM_WORDS)
+  parameter int unsigned IMEM_ADDR_W = $clog2(IMEM_WORDS),
+  parameter bit USE_IHP_IMEM = 1'b0
 ) (
   input  logic clk,
   input  logic rst,
@@ -12,6 +13,7 @@ module simt_core #(
   output logic launch_ready_o,
   input  logic [31:0] launch_pc_i,
   input  logic [2:0] launch_warp_count_i,
+  input  logic fetch_response_ready_i,
   input  logic execute_completion_ready_i,
   input  logic commit_ready_i,
   output logic running_o,
@@ -123,7 +125,8 @@ module simt_core #(
     .IMEM_WORDS(IMEM_WORDS),
     .IMEM_ADDR_W(IMEM_ADDR_W),
     .WARPS(WARPS),
-    .WARP_ID_W(WARP_ID_WIDTH)
+    .WARP_ID_W(WARP_ID_WIDTH),
+    .USE_IHP_IMEM(USE_IHP_IMEM)
   ) frontend_u (
     .clk(clk),
     .rst(rst),
@@ -136,6 +139,7 @@ module simt_core #(
     .warp_pc_i(warp_pc_q),
     .consume_valid_i(issue_fire),
     .consume_warp_i(scheduler_warp),
+    .response_ready_i(fetch_response_ready_i),
     .buffer_valid_o(fetch_buffer_valid),
     .buffer_pc_o(fetch_buffer_pc),
     .buffer_instruction_o(warp_instruction),

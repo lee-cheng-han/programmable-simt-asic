@@ -3,6 +3,7 @@ module tb_warp_instruction_frontend;
   localparam int unsigned WARPS = 4;
   logic clk = 1'b0;
   logic rst, clear, flush, prog_valid, consume_valid;
+  logic response_ready;
   logic [3:0] prog_addr;
   logic [31:0] prog_data;
   logic [WARPS-1:0] warp_active;
@@ -29,7 +30,8 @@ module tb_warp_instruction_frontend;
     .prog_valid_i(prog_valid), .prog_addr_i(prog_addr),
     .prog_data_i(prog_data), .warp_active_i(warp_active),
     .warp_pc_i(warp_pc), .consume_valid_i(consume_valid),
-    .consume_warp_i(consume_warp), .buffer_valid_o(buffer_valid),
+    .consume_warp_i(consume_warp), .response_ready_i(response_ready),
+    .buffer_valid_o(buffer_valid),
     .buffer_pc_o(buffer_pc), .buffer_instruction_o(buffer_instruction),
     .request_valid_o(request_valid), .request_warp_o(request_warp),
     .request_addr_o(request_addr)
@@ -71,6 +73,7 @@ module tb_warp_instruction_frontend;
     warp_active = '0;
     warp_pc = '0;
     consume_valid = 1'b0;
+    response_ready = 1'b1;
     consume_warp = '0;
     checks = 0;
     repeat (2) @(posedge clk);
@@ -83,8 +86,18 @@ module tb_warp_instruction_frontend;
     for (int unsigned warp = 0; warp < WARPS; warp++)
       warp_pc[warp] = 32'(warp + 1);
     warp_active = '1;
+    fork
+      begin
+        repeat (16) begin
+          @(negedge clk);
+          response_ready = ($urandom_range(0,2) != 0);
+        end
+        response_ready = 1'b1;
+      end
+    join_none
     for (int unsigned warp = 0; warp < WARPS; warp++)
       wait_for_buffer(warp);
+    wait fork;
     checks++;
     if (buffer_valid != '1)
       $fatal(1, "not all warp buffers filled valid=%b", buffer_valid);

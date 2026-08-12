@@ -9,7 +9,7 @@ interface simt_core_if(input logic clk);
   logic launch_valid=0, launch_ready;
   logic [31:0] launch_pc=0;
   logic [2:0] launch_warp_count=0;
-  logic execute_completion_ready=1, commit_ready=1;
+  logic fetch_response_ready=1, execute_completion_ready=1, commit_ready=1;
   logic running, done, fault;
   logic [31:0] fault_pc;
   fault_code_t fault_code;

@@ -54,6 +54,7 @@ verilator --binary --timing --assert --Wall \
   --Mdir build/verilator/warp_instruction_frontend \
   --top-module tb_warp_instruction_frontend \
   rtl/control/round_robin_arbiter.sv \
+  rtl/frontend/instruction_sram_adapter.sv \
   rtl/frontend/warp_instruction_frontend.sv \
   tb/unit/tb_warp_instruction_frontend.sv
 build/verilator/warp_instruction_frontend/Vtb_warp_instruction_frontend
@@ -135,7 +136,7 @@ verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
   rtl/execute/architectural_writeback.sv \
   rtl/control/dependency_scoreboard.sv rtl/control/round_robin_arbiter.sv \
   rtl/control/fatal_fault_controller.sv \
-  rtl/frontend/warp_instruction_frontend.sv \
+  rtl/frontend/instruction_sram_adapter.sv rtl/frontend/warp_instruction_frontend.sv \
   rtl/core/simt_core.sv \
   tb/integration/tb_single_warp_core.sv
 build/verilator/single_warp_core/Vtb_single_warp_core
@@ -158,7 +159,7 @@ verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
   rtl/execute/completion_arbiter.sv rtl/execute/architectural_writeback.sv \
   rtl/control/dependency_scoreboard.sv rtl/control/round_robin_arbiter.sv \
   rtl/control/fatal_fault_controller.sv \
-  rtl/frontend/warp_instruction_frontend.sv \
+  rtl/frontend/instruction_sram_adapter.sv rtl/frontend/warp_instruction_frontend.sv \
   rtl/core/simt_core.sv tb/integration/tb_single_warp_lifecycle.sv
 build/verilator/single_warp_lifecycle/Vtb_single_warp_lifecycle
 
@@ -173,7 +174,7 @@ verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
   rtl/control/round_robin_arbiter.sv rtl/execute/completion_arbiter.sv \
   rtl/execute/architectural_writeback.sv \
   rtl/control/dependency_scoreboard.sv rtl/control/fatal_fault_controller.sv \
-  rtl/frontend/warp_instruction_frontend.sv \
+  rtl/frontend/instruction_sram_adapter.sv rtl/frontend/warp_instruction_frontend.sv \
   rtl/core/simt_core.sv tb/integration/tb_four_warp_core.sv
 build/verilator/four_warp_core/Vtb_four_warp_core
 python3 tools/assembler/assembler.py tb/programs/four_warp_arithmetic.s \
@@ -196,7 +197,7 @@ verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
   rtl/control/round_robin_arbiter.sv rtl/execute/completion_arbiter.sv \
   rtl/execute/architectural_writeback.sv \
   rtl/control/dependency_scoreboard.sv rtl/control/fatal_fault_controller.sv \
-  rtl/frontend/warp_instruction_frontend.sv \
+  rtl/frontend/instruction_sram_adapter.sv rtl/frontend/warp_instruction_frontend.sv \
   rtl/core/simt_core.sv tb/integration/tb_four_warp_divergence.sv
 build/verilator/four_warp_divergence/Vtb_four_warp_divergence
 python3 tools/assembler/assembler.py tb/programs/divergence.s \

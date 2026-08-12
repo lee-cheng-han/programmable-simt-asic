@@ -4,7 +4,7 @@ CXXFLAGS ?= -std=c++17 -Wall -Wextra -Wpedantic -Werror -O2
 BUILD := build
 PROGRAM ?= tb/programs/arithmetic.s
 
-.PHONY: all test python-test emulator-test rtl-test uvm-compile uvm-differential uvm-regression synth-elab synth assemble disassemble xsim-smoke clean
+.PHONY: all test python-test emulator-test rtl-test uvm-compile uvm-differential uvm-regression coverage-report formal mutation-smoke sram-check trial-floorplan integrated-floorplan synth-elab synth synth-mapped assemble disassemble xsim-smoke clean
 all: $(BUILD)/simt-emulator
 
 $(BUILD):
@@ -36,11 +36,32 @@ uvm-differential: $(BUILD)/simt-emulator
 uvm-regression: $(BUILD)/simt-emulator
 	scripts/run_uvm_regression.sh $(UVM_SEEDS)
 
+coverage-report:
+	$(PYTHON) scripts/merge_portable_coverage.py
+
+formal:
+	scripts/run_bounded_formal.sh
+
+mutation-smoke:
+	$(PYTHON) scripts/run_mutation_smoke.py
+
+sram-check:
+	scripts/check_sram_views.sh
+
+trial-floorplan:
+	scripts/run_trial_floorplan.sh
+
+integrated-floorplan:
+	scripts/run_integrated_floorplan.sh
+
 synth-elab:
 	SYNTH_ELAB_ONLY=1 scripts/run_early_synthesis.sh
 
 synth:
 	scripts/run_early_synthesis.sh
+
+synth-mapped:
+	scripts/run_mapped_synthesis.sh
 
 assemble: | $(BUILD)
 	$(PYTHON) tools/assembler/assembler.py $(PROGRAM) -o $(BUILD)/$(notdir $(basename $(PROGRAM))).bin

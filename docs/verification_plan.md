@@ -112,9 +112,9 @@ results by three model cycles. RTL and model emit canonical commit records keyed
 by epoch, warp, and sequence; the comparator rejects duplicate keys and reports
 the first field-level mismatch after key ordering. The arithmetic comparison
 covers 48 events across two drained launches and the simultaneous divergence
-comparison covers 44 events. Mid-flight epoch cancellation, completion
-arbitration, memory, barriers, and randomized control flow remain assigned to
-the rest of the pre-memory stabilization gate.
+comparison covers 44 events. Mid-flight epoch cancellation, three independent
+backpressure boundaries, structured control, and the complete pre-memory ISA are
+included in the closed differential matrix. Memory and barriers are next.
 
 The UVM 1.2 processor environment provides a reusable command sequence item,
 sequencer, active programming/launch driver, architectural commit monitor,
@@ -125,11 +125,11 @@ the same independent C++ model and first-mismatch comparator used by the directe
 regression. `make uvm-differential` is the reproducible entry point. UVM remains
 an additional verification frontend and does not replace fast Verilator tests.
 
-### UVM and differential closure plan
+### UVM and differential closure
 
-The current environment foundation consists of the active core agent, driver,
+The closed environment consists of the active core agent, driver,
 monitor, scoreboard, basic arithmetic sequence, and independent differential
-test. It remains the smoke gate while the environment expands.
+test. It remains the smoke gate while memory verification is added.
 
 The current implementation includes constrained-random legal integer/dependency
 programs, a clear/relaunch virtual sequence, deterministic test/seed selection,
@@ -137,29 +137,28 @@ per-run artifacts, randomized execution-completion and writeback backpressure,
 stable-handshake assertions, and architectural opcode/warp/source/mask/stall
 coverage. Shallow and nested divergence/reconvergence now run with a selectable
 one-through-four resident warps, canonical lane ordering, and opcode-by-resident-
-warp coverage. The next increment expands lifecycle/fault scenarios and begins
-merged coverage analysis. Random generation must favor
+warp coverage. A fatal-recovery virtual sequence now provokes a stack underflow,
+checks that the faulting instruction has no issue or commit side effect, clears
+the sticky fault, and differentially checks a drained four-warp relaunch in the
+next epoch. A separate virtual sequence cancels accepted outstanding work and
+differentially checks the next epoch. The portable merge reports 43/43 approved
+risk bins with no unexplained holes. Random
+generation must favor
 meaningful dependency, predication, scheduling, and
 structured-control scenarios rather than arbitrary words dominated by illegal
 encodings. Every run records the test name, simulator, seed, generated assembly
 and binary, RTL trace, model trace, first mismatch, and simulation log.
 
-The regression increment runs reproducible seed lists in parallel, retains all
-failure artifacts, merges coverage, and reports both numerical results and
-uncovered bins. Coverage holes are reviewed and classified before stimulus is
-changed. Legitimate holes receive targeted sequences or adjusted weights;
-unreachable bins require reviewed exclusions; RTL and coverage-model defects
-remain failures until corrected.
+The release regression runs reproducible seed lists sequentially because XSim
+elaborations share runtime state. It retains failure artifacts and merges
+portable coverage. The closed run contains seven test classes across seeds 1–3:
+21 simulations, zero UVM errors, and 21 model-matched traces.
 
-Closure requires the approved functional coverage model to be complete, with no
-unexplained holes; selected safety and conservation assertions to pass bounded
-formal analysis; and an initial mutation set to produce quantitative detection
-results. Mutations include scheduler priority, wrong-warp or wrong-sequence
-scoreboard clear, removed epoch checking, multiplier-latency changes, dropped
-simultaneous completions, PC advance without issue, stale frontend retention,
-swapped branch masks, stack wrap, early `done`, and fault-cycle writeback. Every
-survivor must cause a new test/property or receive an architectural-equivalence
-justification.
+Closure evidence is 43/43 approved risk bins, two twelve-cycle inductive arbiter
+proofs, one exhaustive architectural-writeback proof, and 9/9 detected mutations
+with no survivors or invalid mutants. Mutations cover scheduler priority,
+scoreboard epoch ownership, FIFO ordering/capacity, multiplier data, stale-epoch
+writeback, divergent masks, stack overflow, and early `done`.
 
 Initial functional coverage includes opcode, resident warp count, selected warp,
 completion source, dependency type, predicate mode, active-mask class, branch
@@ -168,11 +167,12 @@ transition, clear timing, fault class, and kernel-drain blocker. Required crosse
 are limited to combinations representing a documented design risk so coverage
 closure remains technically meaningful.
 
-`make uvm-regression UVM_SEEDS="1 2 3 4 5"` is the initial deterministic
+`make uvm-regression UVM_SEEDS="1 2 3"` reproduces the closed deterministic
 multi-seed entry point. Each successful run retains its generated hexadecimal
 and binary program, model and RTL traces, first-mismatch result, and simulator
-logs under a test-and-seed-specific directory. Coverage databases use the same
-test-and-seed identity for later merging.
+logs under a test-and-seed-specific directory. Portable manifests use the same
+identity and `make coverage-report` merges them without a proprietary coverage
+license. Native XSim coverage is optional with `XSIM_NATIVE_COVERAGE=1`.
 
 The divergence integration test executes the canonical `SSY`, guarded `BRA`,
 uniform redirect, and two-arrival `SYNC` sequence. It checks low-lane taken-path
@@ -180,8 +180,8 @@ and high-lane deferred-path masks, final per-lane values, ordered sequence tags,
 full drainage, empty-stack underflow, and ninth-push overflow. It also executes
 a depth-two nested split and four simultaneously diverging resident warps. The
 canonical 11-event RTL trace agrees with the independent emulator. Stack-depth,
-state-stability, and fault-suppression assertions run in both simulators;
-bounded-engine proofs remain assigned to the pre-memory verification gate.
+state-stability, and fault-suppression assertions run in both simulators. The
+mask-swap and stack-wrap mutations demonstrate focused-test sensitivity.
 
 The single-warp integration test programs instruction memory and executes two
 independent immediate writes, a RAW-dependent add, a predicate comparison, a
