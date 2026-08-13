@@ -8,7 +8,7 @@ RUNS = ROOT / "build" / "uvm" / "runs"
 REPORT = ROOT / "build" / "uvm" / "portable_coverage_report.md"
 
 EXPECTED = {
-    "opcode": set(range(1, 22)) | {26, 27, 29, 30, 31},
+    "opcode": set(range(1, 26)) | {26, 27, 29, 30, 31},
     "warp": set(range(4)),
     "source": {0, 1},
     "resident_warps": {1, 2, 3, 4},

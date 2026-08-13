@@ -1,0 +1,4 @@
+MOVI R1, 1
+BAR
+ADD R2, R1, R1
+EXIT

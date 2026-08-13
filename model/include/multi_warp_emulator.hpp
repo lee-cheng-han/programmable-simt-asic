@@ -45,6 +45,7 @@ class MultiWarpEmulator {
     Mask active{0xff};
     bool valid{true};
     bool ssy_valid{};
+    bool barrier_wait{};
   };
 
   struct TraceEvent {
@@ -73,6 +74,8 @@ class MultiWarpEmulator {
   std::array<Warp, kMaxWarps> warps_{};
   std::deque<Multiply> multiplies_;
   std::vector<TraceEvent> trace_;
+  std::array<uint8_t, 4096> scratchpad_{};
+  std::array<uint8_t, 2048> shared_memory_{};
 
   bool canonical(uint32_t word, Opcode opcode) const;
   bool eligible(unsigned warp) const;

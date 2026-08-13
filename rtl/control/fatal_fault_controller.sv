@@ -4,23 +4,25 @@ module fatal_fault_controller (
   input logic fetch_fault_i, input logic [31:0] fetch_fault_pc_i,
   input logic illegal_fault_i, input logic [31:0] illegal_fault_pc_i,
   input logic unsupported_fault_i, input logic [31:0] unsupported_fault_pc_i,
+  input logic memory_fault_i, input simt_gpu_pkg::fault_code_t memory_fault_code_i,
+  input logic [31:0] memory_fault_pc_i,
   input logic control_fault_i,
   input simt_gpu_pkg::fault_code_t control_fault_code_i,
   input logic [31:0] control_fault_pc_i,
   output logic fatal_now_o, output logic fault_valid_o,
   output simt_gpu_pkg::fault_code_t fault_code_o,
   output logic [31:0] fault_pc_o,
-  output logic [4:0] simultaneous_causes_o
+  output logic [5:0] simultaneous_causes_o
 );
   import simt_gpu_pkg::*;
   fault_code_t selected_code;
   logic [31:0] selected_pc;
-  logic [4:0] causes;
+  logic [5:0] causes;
   logic fault_valid_q; fault_code_t fault_code_q; logic [31:0] fault_pc_q;
-  logic [4:0] causes_q;
+  logic [5:0] causes_q;
 
   always_comb begin
-    causes = {host_fault_i, fetch_fault_i, illegal_fault_i,
+    causes = {host_fault_i, fetch_fault_i, illegal_fault_i, memory_fault_i,
               control_fault_i, unsupported_fault_i};
     selected_code = FAULT_NONE; selected_pc = '0;
     if (host_fault_i) begin selected_code = FAULT_IMEM_WRITE_WHILE_BUSY;
@@ -29,6 +31,8 @@ module fatal_fault_controller (
       selected_pc = fetch_fault_pc_i; end
     else if (illegal_fault_i) begin selected_code = FAULT_ILLEGAL_INSTRUCTION;
       selected_pc = illegal_fault_pc_i; end
+    else if (memory_fault_i) begin selected_code = memory_fault_code_i;
+      selected_pc = memory_fault_pc_i; end
     else if (control_fault_i) begin selected_code = control_fault_code_i;
       selected_pc = control_fault_pc_i; end
     else if (unsupported_fault_i) begin selected_code = FAULT_UNSUPPORTED_STAGE;

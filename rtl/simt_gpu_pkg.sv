@@ -42,7 +42,10 @@ package simt_gpu_pkg;
     FAULT_UNSUPPORTED_STAGE     = 4'd4,
     FAULT_SIMT_STACK_OVERFLOW   = 4'd5,
     FAULT_SIMT_STACK_UNDERFLOW  = 4'd6,
-    FAULT_SIMT_CONTROL          = 4'd7
+    FAULT_SIMT_CONTROL          = 4'd7,
+    FAULT_MEMORY_MISALIGNED     = 4'd8,
+    FAULT_MEMORY_OUT_OF_RANGE   = 4'd9,
+    FAULT_BARRIER_VIOLATION     = 4'd10
   } fault_code_t;
 
   typedef struct packed {

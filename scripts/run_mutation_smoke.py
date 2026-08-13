@@ -23,6 +23,7 @@ CORE_DEPS = (
     "rtl/control/round_robin_arbiter.sv", "rtl/execute/completion_arbiter.sv",
     "rtl/execute/architectural_writeback.sv",
     "rtl/control/dependency_scoreboard.sv", "rtl/control/fatal_fault_controller.sv",
+    "rtl/memory/banked_vector_memory.sv", "rtl/memory/memory_subsystem.sv",
     "rtl/frontend/instruction_sram_adapter.sv",
     "rtl/frontend/warp_instruction_frontend.sv",
 )

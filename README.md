@@ -12,12 +12,13 @@ checkable architectural behavior.
 ## Current status
 
 ```text
-Release stage:  Pre-memory stabilization closed; memory implementation next
+Release stage:  Memory-system integration and verification
 Completed:      Core; reconvergence; SRAM-backed frontend; four-warp reference traces
 Verified:       21-run XSim differential matrix, 43/43 risk bins, three formal proofs, and 9/9 mutation detection
 In progress:    Memory-system RTL and verification
-Next:           Banked scratchpad/shared memory, trackers, replay, barriers, and memory completion
-Not started:    Memory system, DFT, physical implementation
+Current:        Banked scratchpad/shared memory, four trackers, replay, barriers, and memory completion
+Next:           Memory differential coverage, SRAM wrappers, and verification closure
+Not started:    Qualified data-SRAM integration, DFT, physical implementation, FPGA shell
 ```
 
 The authoritative contract is [docs/architecture.md](docs/architecture.md).

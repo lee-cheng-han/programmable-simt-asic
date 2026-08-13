@@ -44,6 +44,8 @@ module simt_core #(
   logic [WARPS-1:0] ssy_valid_q;
   logic [KERNEL_EPOCH_WIDTH-1:0] epoch_q;
   logic launched_q, done_q;
+  logic[WARPS-1:0]resident_warps_q,barrier_wait_q;
+  logic barrier_release;
 
   logic [WARPS-1:0][31:0] warp_instruction;
   logic [WARPS-1:0][31:0] fetch_buffer_pc;
@@ -63,7 +65,8 @@ module simt_core #(
   logic [WARPS-1:0] scheduler_request, scheduler_grant;
   logic scheduler_valid;
   logic [WARP_ID_WIDTH-1:0] scheduler_warp;
-  logic issue_fire, selected_is_multiply, selected_result_ready;
+  logic issue_fire, selected_is_multiply, selected_is_memory;
+  logic selected_is_store,selected_is_shared,selected_result_ready;
 
   opcode_t selected_opcode;
   logic selected_pred_enable, selected_pred_invert, selected_guard_exec;
@@ -101,6 +104,10 @@ module simt_core #(
   completion_record_t writeback_completion;
   logic [1:0] writeback_occupancy;
   logic [1:0] selected_completion_source;
+  logic memory_completion_v,memory_completion_ready,memory_request_ready;
+  completion_record_t memory_completion;
+  logic memory_fault;fault_code_t memory_fault_code;logic[31:0]memory_fault_pc;
+  logic[WARPS-1:0]memory_warp_busy;logic[2:0]memory_tracker_occupancy;
 
   logic wb_commit_v, wb_gpr_v, wb_pred_v;
   logic [WARP_ID_WIDTH-1:0] wb_gpr_warp, wb_pred_warp, clear_warp;
@@ -119,7 +126,7 @@ module simt_core #(
   lane_mask_t branch_taken_mask, branch_not_taken_mask;
   logic branch_divergent;
   logic [31:0] selected_fault_pc;
-  logic [4:0] simultaneous_causes;
+  logic [5:0] simultaneous_causes;
 
   warp_instruction_frontend #(
     .IMEM_WORDS(IMEM_WORDS),
@@ -160,8 +167,7 @@ module simt_core #(
       .is_store_o(is_store[warp]), .is_branch_o(is_branch[warp]));
 
     always_comb begin
-      supported[warp] = legal[warp] && !is_load[warp] && !is_store[warp] &&
-                        opcode[warp] != OP_BAR &&
+      supported[warp] = legal[warp] &&
                         (!is_branch[warp] || opcode[warp] == OP_BRA ||
                          opcode[warp] == OP_SSY);
       warp_gpr_sources[warp] = '0;
@@ -174,6 +180,8 @@ module simt_core #(
         warp_valid_q[warp] && fetch_buffer_valid[warp] &&
         fetch_buffer_pc[warp] == warp_pc_q[warp] &&
         supported[warp] &&
+        !memory_warp_busy[warp] &&
+        !barrier_wait_q[warp] &&
         !(|(gpr_pending[warp] & warp_gpr_sources[warp])) &&
         !(writes_gpr[warp] && gpr_pending[warp][rd[warp]]) &&
         !(|(pred_pending[warp] & warp_pred_sources[warp])) &&
@@ -186,6 +194,8 @@ module simt_core #(
     .request_i(scheduler_request), .grant_valid_o(scheduler_valid),
     .grant_index_o(scheduler_warp), .grant_onehot_o(scheduler_grant),
     .grant_accept_i(issue_fire));
+  assign barrier_release=launched_q&&resident_warps_q!='0&&
+                         (barrier_wait_q&resident_warps_q)==resident_warps_q;
 
   always_comb begin
     selected_opcode = opcode[scheduler_warp];
@@ -205,11 +215,15 @@ module simt_core #(
     selected_instruction = warp_instruction[scheduler_warp];
     selected_active_mask = warp_active_mask_q[scheduler_warp];
     selected_is_multiply = selected_opcode == OP_MUL;
+    selected_is_memory = is_load[scheduler_warp]||is_store[scheduler_warp];
+    selected_is_store = is_store[scheduler_warp];
+    selected_is_shared = selected_opcode==OP_LD_S||selected_opcode==OP_ST_S;
   end
 
   always_comb begin
-    selected_result_ready = selected_is_multiply ? mul_issue_ready :
-                                                     alu_result_ready;
+    if(selected_is_memory) selected_result_ready=memory_request_ready;
+    else if(selected_is_multiply) selected_result_ready=mul_issue_ready;
+    else selected_result_ready=alu_result_ready;
     issue_fire = scheduler_valid && selected_result_ready &&
                  scoreboard_ready && !fatal_now;
   end
@@ -277,7 +291,7 @@ module simt_core #(
 
   alu_completion_stage alu_completion_u (
     .clk(clk), .rst(rst), .flush_i(clear_i || fatal_now),
-    .result_valid_i(issue_fire && !selected_is_multiply),
+    .result_valid_i(issue_fire && !selected_is_multiply&&!selected_is_memory),
     .result_ready_o(alu_result_ready), .epoch_i(epoch_q),
     .warp_id_i(scheduler_warp),
     .sequence_number_i(warp_sequence_q[scheduler_warp]),
@@ -304,6 +318,21 @@ module simt_core #(
     .completion_ready_i(mul_completion_ready),
     .completion_o(mul_completion), .queue_occupancy_o(mul_occupancy),
     .stage_valid_o(mul_stage_valid));
+
+  memory_subsystem memory_u(
+    .clk,.rst,.clear_i,.fatal_i(fatal_now),
+    .request_valid_i(issue_fire&&selected_is_memory),
+    .request_ready_o(memory_request_ready),.request_shared_i(selected_is_shared),
+    .request_store_i(selected_is_store),.request_epoch_i(epoch_q),
+    .request_warp_i(scheduler_warp),.request_sequence_i(warp_sequence_q[scheduler_warp]),
+    .request_pc_i(selected_pc),.request_instruction_i(selected_instruction),
+    .request_active_mask_i(selected_active_mask),.request_mask_i(execute_mask),
+    .request_gpr_dst_i(selected_rd),.request_address_i(memory_address),
+    .request_store_data_i(store_data),.completion_valid_o(memory_completion_v),
+    .completion_ready_i(memory_completion_ready),.completion_o(memory_completion),
+    .fault_valid_o(memory_fault),.fault_code_o(memory_fault_code),
+    .fault_pc_o(memory_fault_pc),.warp_busy_o(memory_warp_busy),
+    .tracker_occupancy_o(memory_tracker_occupancy));
 
   always_comb begin
     candidate_predicate = pred_mask ^ {LANES{selected_pred_invert}};
@@ -341,6 +370,9 @@ module simt_core #(
           control_fault = 1'b1;
           control_fault_code = FAULT_SIMT_CONTROL;
         end
+        OP_BAR: if(selected_pred_enable||selected_active_mask!={LANES{1'b1}})begin
+          control_fault=1'b1;control_fault_code=FAULT_BARRIER_VIOLATION;
+        end
         default: begin end
       endcase
     end
@@ -350,11 +382,13 @@ module simt_core #(
     source_valid = '0;
     source_valid[0] = alu_completion_v;
     source_valid[1] = mul_completion_v;
+    source_valid[2] = memory_completion_v;
     sources[0] = alu_completion;
     sources[1] = mul_completion;
-    sources[2] = '0;
+    sources[2] = memory_completion;
     alu_completion_ready = source_ready[0];
     mul_completion_ready = source_ready[1];
+    memory_completion_ready = source_ready[2];
   end
   completion_arbiter arbiter_u (
     .clk(clk), .rst(rst), .clear_i(clear_i || fatal_now),
@@ -428,7 +462,7 @@ module simt_core #(
                           launch_warp_count_i <= 3'(WARPS) &&
                           alu_occupancy == 0 && mul_occupancy == 0 &&
                           mul_stage_valid == 0 && !completion_v &&
-                          writeback_occupancy == 0;
+                          writeback_occupancy == 0&&memory_tracker_occupancy==0;
   assign running_o = launched_q && !done_q && !fault_valid;
   assign done_o = done_q;
   assign fault_o = fault_valid;
@@ -441,6 +475,8 @@ module simt_core #(
     .illegal_fault_i(illegal_fault), .illegal_fault_pc_i(selected_fault_pc),
     .unsupported_fault_i(unsupported_fault),
     .unsupported_fault_pc_i(selected_fault_pc),
+    .memory_fault_i(memory_fault),.memory_fault_code_i(memory_fault_code),
+    .memory_fault_pc_i(memory_fault_pc),
     .control_fault_i(control_fault),
     .control_fault_code_i(control_fault_code),
     .control_fault_pc_i(selected_pc),
@@ -466,6 +502,7 @@ module simt_core #(
         end
       end
       epoch_q <= '0;
+      resident_warps_q<='0;barrier_wait_q<='0;
       launched_q <= 1'b0;
       done_q <= 1'b0;
       cycle_count_o <= '0;
@@ -481,6 +518,7 @@ module simt_core #(
         ssy_valid_q[warp] <= 1'b0;
       end
       epoch_q <= epoch_q + 1'b1;
+      resident_warps_q<='0;barrier_wait_q<='0;
       launched_q <= 1'b0;
       done_q <= 1'b0;
       cycle_count_o <= '0;
@@ -495,6 +533,8 @@ module simt_core #(
           warp_active_mask_q[warp] <= {LANES{1'b1}};
           stack_depth_q[warp] <= '0;
           ssy_valid_q[warp] <= 1'b0;
+          resident_warps_q[warp]<=warp<launch_warp_count_i;
+          barrier_wait_q[warp]<=1'b0;
         end
         launched_q <= 1'b1;
         done_q <= 1'b0;
@@ -507,6 +547,8 @@ module simt_core #(
         if (wb_commit_v && commit_ready_i)
           commit_count_o <= commit_count_o + 1'b1;
       end
+
+      if(barrier_release)barrier_wait_q<='0;
 
       if (issue_fire) begin
         warp_sequence_q[scheduler_warp] <=
@@ -567,6 +609,9 @@ module simt_core #(
               stack_depth_q[scheduler_warp] - 1'b1;
             ssy_valid_q[scheduler_warp] <= 1'b0;
           end
+        end else if(selected_opcode==OP_BAR)begin
+          warp_pc_q[scheduler_warp]<=selected_pc+1'b1;
+          barrier_wait_q[scheduler_warp]<=1'b1;
         end else if (selected_opcode == OP_EXIT) begin
           warp_pc_q[scheduler_warp] <= selected_pc + 1'b1;
           warp_active_mask_q[scheduler_warp] <=
@@ -582,6 +627,7 @@ module simt_core #(
       if (launched_q && warp_valid_q == '0 && alu_occupancy == 0 &&
           mul_occupancy == 0 && mul_stage_valid == '0 && !completion_v &&
           writeback_occupancy == 0 &&
+          memory_tracker_occupancy == 0 &&
           gpr_pending == '0 && pred_pending == '0 && !fatal_now)
         done_q <= 1'b1;
     end
@@ -618,15 +664,15 @@ module simt_core #(
       assert (scoreboard_ready);
       assert (!alu_unsupported);
       if (selected_opcode != OP_BRA) assert (branch_condition == '0);
-      assert (memory_address == '0 && store_data == '0);
+      if(!selected_is_memory)
+        assert (memory_address == '0 && store_data == '0);
     end
-    if (!rst && !clear_i) assert (!source_ready[2]);
     if (!rst && !clear_i && fetch_request_valid) begin
       assert (32'(fetch_request_warp) < 32'(WARPS));
       assert (32'(fetch_request_addr) < 32'(IMEM_WORDS));
     end
     if (!rst && !clear_i && completion_v)
-      assert (selected_completion_source < 2);
+      assert (selected_completion_source < 3);
     if (!rst && !clear_i && fault_valid) assert (simultaneous_causes != 0);
     if (!rst && !clear_i) assert (!stale_cancel);
   end

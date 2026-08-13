@@ -18,6 +18,7 @@ xvlog -sv build/simt_isa_pkg.sv rtl/simt_gpu_pkg.sv \
   rtl/control/dependency_scoreboard.sv \
   rtl/control/round_robin_arbiter.sv \
   rtl/control/fatal_fault_controller.sv \
+  rtl/memory/banked_vector_memory.sv rtl/memory/memory_subsystem.sv \
   rtl/execute/vector_multiplier_pipeline.sv \
   rtl/execute/completion_arbiter.sv \
   rtl/core/simt_core.sv \

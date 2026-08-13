@@ -65,6 +65,31 @@ class EmulatorTests(unittest.TestCase):
    warp_events=[event for event in events if int(event[2])==warp]
    self.assertEqual([int(event[3]) for event in warp_events],list(range(6)))
    self.assertTrue(all(int(value,16)==warp for value in warp_events[0][11:19]))
+ def test_four_warp_memory_trace(self):
+  events,output=self.run_multiwarp('global_memory.s')
+  self.assertEqual(len(events),20)
+  self.assertIn('issues=20 commits=20 warps=4 runs=1 fault=0',output)
+  loads=[event for event in events if int(event[5],16)>>26==22]
+  self.assertEqual(len(loads),4)
+  for event in loads:self.assertTrue(all(int(value,16)==42 for value in event[11:19]))
+ def test_four_warp_barrier_trace(self):
+  events,output=self.run_multiwarp('four_warp_barrier.s')
+  self.assertEqual(len(events),16)
+  self.assertIn('issues=16 commits=16 warps=4 runs=1 fault=0',output)
+  barrier_indices=[index for index,event in enumerate(events)
+                   if int(event[5],16)>>26==28]
+  add_indices=[index for index,event in enumerate(events)
+               if int(event[5],16)>>26==1]
+  self.assertEqual(len(barrier_indices),4)
+  self.assertEqual(len(add_indices),4)
+  self.assertLess(max(barrier_indices),min(add_indices))
+ def test_shared_memory_reduction_trace(self):
+  events,output=self.run_multiwarp('shared_reduction.s')
+  self.assertEqual(len(events),68)
+  self.assertIn('issues=68 commits=68 warps=4 runs=1 fault=0',output)
+  results=[event for event in events if int(event[4],16)==15]
+  self.assertEqual(len(results),4)
+  for event in results:self.assertTrue(all(int(value,16)==6 for value in event[11:19]))
  def test_four_warp_divergence_trace(self):
   events,output=self.run_multiwarp('divergence.s')
   self.assertEqual(len(events),44)

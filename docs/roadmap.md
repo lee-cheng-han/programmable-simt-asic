@@ -14,7 +14,7 @@ memory contracts freeze.
 | 1 | Processor architecture foundation | Complete: consolidated core, four-warp execution, nested reconvergence, fatal bounds, emulator trace agreement, and provisional IHP SRAM views pass | Preserve the single authoritative core and selected macro contract |
 | 2 | Frontend and model stabilization | Complete: SRAM-backed fetch, randomized response backpressure, lifecycle cancellation, mapped synthesis, and integrated legal placement | Preserve as a regression gate during memory integration |
 | 3 | Pre-memory verification | Complete: 21-run differential matrix, 43/43 approved risk bins, three formal proofs, and 9/9 mutations detected | Preserve closure while extending coverage for memory behavior |
-| 4 | Memory system | Blocked by groups above | Begin shared memory, barriers, and scratchpad only after stabilization closes |
+| 4 | Memory-system integration | In progress: banked memories, trackers, completion, barriers, directed reduction, and model support pass | Close differential, random, formal, mutation, macro-wrapper, and coverage evidence |
 
 Performance counters remain limited to measurements needed for current claims.
 Extended counters and bounded debug snapshots stay in the standalone-core
@@ -160,6 +160,18 @@ OpenROAD trial reports 0.8583 mm² of macro area and legal placement in a
 1.70 mm × 0.80 mm die. Memory wrappers, register-file implementation review,
 integrated mapped timing/area, halos, PDN, and routing remain open.
 
+Before physical freeze, complete a measured register-file implementation study
+covering flip-flop, latch-based where supported, replicated SRAM, banked, and
+time-multiplexed organizations. Compare area, timing, power, port semantics, and
+routing, then select one explicitly. Run X-propagation and initialization tests
+for SRAM, invalid queue payloads, trackers, inactive lanes, and reset release;
+architectural behavior may not depend on uninitialized data.
+
+Maintain a supported-configuration regression for one through four resident
+warps, reduced simulation memories, permitted queue/tracker depths, and
+behavioral, ASIC-macro, and later FPGA memory wrappers. Unsupported combinations
+must fail elaboration with a clear diagnostic.
+
 ### Pre-memory verification gate
 
 Add randomized backpressure at execution completion and architectural writeback.
@@ -232,12 +244,74 @@ trackers, and memory completion as one coherent subsystem.
 Integrate eight shared banks, replay, broadcast, tracker behavior, barriers,
 ordering, and deadlock watchdog. Exit requires a passing multi-warp reduction.
 
+Current implementation includes the eight-bank 2 KiB shared store, deterministic
+lane replay and load broadcast, full-warp barriers, a missing-warp simulation
+watchdog, and a four-warp shared-memory reduction that produces six in every
+lane after synchronizing contributions from warp IDs zero through three.
+
 ### General scratchpad and memory completion
 
 Integrate the 4 KiB eight-bank scratchpad, four trackers, response collector,
 memory queue, three-source arbitration, store ordering, load visibility, and
 stale-response rejection. A fifth operation and second same-warp operation must
 backpressure safely.
+
+Current implementation includes the eight-bank 4 KiB scratchpad, four tagged
+system-wide trackers, one-operation-per-warp allocation, a two-entry memory
+completion queue, three-source completion arbitration, instruction-atomic fault
+validation, and directed fifth-operation/same-warp backpressure checks.
+
+### Memory architecture and verification closure
+
+Freeze and verify cross-warp visibility, barrier ordering, same-address store
+behavior, memory lifetime across launch/clear/reset/fault/BIST, and the explicit
+absence of baseline atomics. Replace the testbench-only missing-warp timeout with
+a configurable architectural barrier watchdog, sticky
+`FAULT_BARRIER_DEADLOCK`, waiting-warp snapshot, and host-visible control. Prove
+that valid barriers cannot trip it and that older memory drains before arrival.
+
+Extend the UVM environment with memory-aware sequence items, constrained-random
+addresses and masks, general/shared selection, broadcast, every bank-conflict
+degree, all tracker occupancies, fifth-request and same-warp rejection,
+completion backpressure, cross-warp aliases, clear/fault collisions, and virtual
+sequences coordinating four warps. Add an optional diagnostic memory trace with
+epoch, warp, sequence, lane, space, address, bank, row, tracker, service cycle,
+response cycle, and fault result; the architectural commit trace remains the
+pass/fail authority.
+
+Close fault atomicity across load/store, both spaces, every invalid-lane
+position, inactive invalid lanes, multiple invalid lanes, conflicts, stalled
+completion, clear, and older work. Assertions and formal properties cover
+tracker ownership/capacity, queue conservation, stable responses, ascending-lane
+store service, no bank service before full validation, no faulting-store byte
+write, no faulting-load GPR write, barrier-release preconditions, blocked-warp
+issue suppression, memory-inclusive done, and cancellation under clear/epoch
+change. Liveness is proven under explicit fairness assumptions.
+
+Expand mutation testing with wrong bank/row selection, skipped or incorrectly
+validated lanes, permitted misalignment, partial fault commits, prevalidation
+store leakage, reversed lane priority, duplicate same-warp trackers, premature
+tracker free, omitted epoch matching, early barrier release, ignored pre-barrier
+memory, and early done. Publish injected/detected/invalid/surviving counts.
+
+Coverage closure includes opcode by space, operation by conflict degree, mask
+class by invalid lane, warp by tracker, occupancy by acceptance, broadcast versus
+replay, completion source by backpressure, barrier arrival order by pending
+memory, fault type by space/lane, and clear/fault by tracker state. Exclusions
+require written justification. Exit requires multi-seed UVM differential passes,
+no unexplained mismatch, closed approved bins, passing memory formal and mutation
+suites, and reproducible reports.
+
+### Qualified data memories
+
+Select the real data-SRAM organization before place-and-route. Map every logical
+bank to legal macros and provide one portable wrapper contract with ASIC macro,
+behavioral simulation, and later FPGA block-RAM implementations. Freeze read
+latency, byte masks, collisions, power pins, reset policy, BIST ports, and
+Liberty/LEF/GDS/CDL/Verilog corner views. Re-pipeline address, SRAM, or response
+collection if macro timing or congestion requires it. Exit requires automated
+view checks, wrapper equivalence tests, synthesis inference evidence, preliminary
+bank placement, and timing across every macro boundary.
 
 ## Standalone verification release
 
@@ -253,11 +327,49 @@ Shared-memory reduction is the flagship end-to-end workload. It must exercise
 four-warp scheduling, bank conflicts and replay, barriers, predication, ordering,
 and performance counters. Matrix multiplication is a secondary workload.
 
+Instrument cycles, issues, commits, empty-eligibility cycles, dependency stalls,
+tracker stalls, replay cycles, broadcasts, completion stalls, barrier wait,
+divergence, and faults. Architectural cycle/instruction counters are 64-bit
+wrapping; diagnostic counters are 32-bit saturating. Compare identical one-warp
+and four-warp workloads and publish cycles, IPC, stall breakdown, replay, and
+barrier cost. The reduction is the primary walkthrough from model through RTL
+and ASIC reports; vector addition is the first secondary throughput baseline,
+with small integer matrix multiplication optional only after those close.
+
+Add a bounded coherent host-readable snapshot of epoch, status/fault/PC,
+resident and barrier masks, warp PCs and active masks, scoreboard and tracker
+occupancy, SIMT-stack-top metadata, and completion/writeback queue occupancy.
+Do not create a full-register-file ASIC debug mux.
+
+Expose immutable ISA/architecture versions, RTL build ID, feature bits,
+lane/warp counts, memory sizes, tracker depth, and queue configuration. Provide
+a minimal C or Python host runtime for loading, initialization, launch, polling,
+fault/counter inspection, and result retrieval; this is not a compiler or
+CUDA/OpenCL compatibility layer.
+
+Every workload has assembly, generated inputs, an independent expected result,
+launch configuration, automatic checking, and one performance-report command.
+Flows emit machine-readable JSON for tests, seeds, coverage, mutation, formal,
+cycles/IPC, timing, area, power, and physical checks. Each result records the
+revision and dirty state, tools, PDK/SRAM versions, constraint/workload hashes,
+seed, date, and host. README tables consume these artifacts.
+
+Add a cycle-level analytical model using instruction mix, warp count, dependency
+distance, conflict/replay degree, and barriers. Compare predictions with RTL.
+Study bank mapping and queue/tracker depth sensitivity on reduction and vector
+addition, but change the baseline only when measured benefit justifies renewed
+area, power, and verification cost.
+
 ### Verification closure
 
 Close assertions, bounded formal properties, numerical functional coverage,
 long seeded regressions, fairness stress, bug injection, requirements traceability,
 and documented limitations. No unexplained mismatch may remain.
+
+Complete pairwise fault-priority tests for reset, clear, fetch/decode, memory,
+barrier/control, completion, and ordinary progress. Explicitly verify the
+accepted-before-edge versus merely-valid writeback boundary. Retain first-
+mismatch artifacts and requirement-to-test/assertion/coverage ownership.
 
 ### Continuous-integration release gate
 
@@ -268,6 +380,17 @@ contract-consistency checks, and `git diff --check`. The required set must pass
 from a clean checkout with pinned tool versions. XSim, long random regressions,
 formal proofs, synthesis, DFT, and physical implementation remain scheduled or
 manually triggered jobs whose reports are required at their release gates.
+
+The required fast gate additionally runs mutation smoke, formal smoke, Python
+syntax, documentation-link/contract checks, and all directed memory/barrier
+programs. A deterministic licensed runner must host XSim UVM jobs; compilation
+or elaboration alone is not a simulation pass. Scheduled jobs merge multi-seed
+coverage and preserve seeds, programs, traces, logs, and tool versions.
+
+CI validates claim categories and provenance. Every number is labeled as an
+architectural-model result, RTL simulation, synthesized estimate, post-route
+result, FPGA measurement, or silicon measurement; categories are not silently
+substituted.
 
 ## ASIC integration and test
 
@@ -290,11 +413,35 @@ the synthesis freeze. Review every crossing and document every synchronizer,
 false path, asynchronous path, and tool waiver. Exit requires clean reports or
 explicitly justified exceptions with owners.
 
+Add RTL-to-synthesis-netlist equivalence and rerun equivalence after scan,
+clock-gating, SRAM-wrapper substitution, and every functional ECO. Synchronize
+reset deassertion and prove unsafe release cycles cannot issue, commit, write an
+SRAM, or respond to the host.
+
 ### Host and SRAM integration
 
 Add the internal bus, Wishbone wrapper, SRAM macro wrappers and views, host
 loading/launch, quiescence/fault reporting, ownership checks, and instruction-write
 busy fault.
+
+The host register map covers program loading, launch PC, resident-warp count,
+launch, clear, status, sticky fault/code/PC, watchdog control, counters, debug
+snapshot, and explicitly authorized scratchpad initialization/readback. Verify
+backpressure, invalid addresses, busy writes, reset, ownership, and simultaneous
+host/core accesses. Freeze memory lifetime as follows unless later evidence
+forces a revision: reset contents are unspecified, software initializes used
+data, launch does not implicitly clear arrays, host clear preserves memory for
+debug, a fault preserves memory, and destructive BIST may destroy contents.
+
+Add bring-up breadcrumbs for reset observed, clock active, launch observed,
+first issue, first commit, and SRAM-BIST completion. Include a deterministic
+diagnostic program exercising ALU, registers, control flow, both memories, and
+barriers independently of the normal workload stack.
+
+Provide verification-build-only injection of SRAM read corruption, completion-
+tag corruption, tracker timeout, illegal instructions, and suppressed barrier
+arrival. Production synthesis removes or disables these hooks and records their
+status in the build manifest.
 
 ### MPW harness integration
 
@@ -309,6 +456,16 @@ package, and board are outside this release target.
 Complete scan architecture and simulation, supported ATPG reporting, destructive
 SRAM BIST, test ownership, and functional/scan/BIST timing constraints.
 
+Document scan enable/test mode, reset controllability, clock-gating bypass,
+supported ATPG coverage, SRAM repair policy where available, destructive BIST
+ownership, and all test clocks/exceptions. The functional baseline uses no manual
+architectural clock gating; evaluate tool-inserted or coarse gating only after
+ungated closure, prove enable equivalence, and force clocks active in scan mode.
+
+Create a minimal UPF-aware power contract even for the single-domain baseline:
+always-on assumptions, SRAM power pins, explicit absence of isolation/retention,
+power-up order, and reset requirements are checked and documented.
+
 ## Physical and signoff release
 
 This group takes the frozen, testable macro through implementation, physical
@@ -322,6 +479,18 @@ Every violation enters a tracked loop: root-cause analysis, RTL or physical ECO,
 incremental implementation, extraction, STA, equivalence, DRC/LVS, and affected
 functional regressions. An ECO closes only when all impacted evidence is rerun.
 
+Close one balanced implementation end to end before exploring area or
+performance variants. Define generated clocks, I/O delays, uncertainty, reset
+treatment, false/multicycle paths, SRAM arcs, scan clocks, and mode constraints;
+exceptions may not conceal violations. Floorplan banks near their engines,
+inspect register-file and wide-vector-bus congestion, control reset fanout, and
+pipeline macro boundaries when required by measured timing.
+
+Use mapped and post-placement timing to review scheduler selection, register-
+file reads, address generation, bank selection, completion arbitration, and
+writeback fanout. Pipeline only paths shown to be limiting, and rerun all
+architectural/differential evidence after any latency change.
+
 ### Signoff and GDS release
 
 Complete supported MMMC STA, activity-based power, IR/EM review, DRC, LVS,
@@ -330,6 +499,44 @@ audit, archived reports/checksums, bring-up firmware, and silicon test plan. The
 filled GDS is the signoff database. After final fill, rerun extraction, setup/hold
 STA, DRC, LVS, antenna, density, power review, and final-netlist consistency; no
 pre-fill result may substitute for this exit gate.
+
+Power uses activity from the shared reduction and vector-add workloads rather
+than an unsupported default toggle rate. Report dynamic, leakage, clock,
+register-file, SRAM, replay, and peak/average assumptions. Archive pinned tools,
+commands, constraints, PDK/macro checks, report provenance, floorplan/congestion
+images, timing and power summaries, waivers, and checksums. Never label generic,
+estimated, pre-fill, or incomplete data as silicon/signoff PPA.
+
+Run targeted SDF gate-level simulations of reset/launch, shared reduction,
+vector addition, fault/clear recovery, SRAM access, and scan/BIST smoke. GLS
+supplements rather than replaces STA and equivalence. Final release requires
+RTL-to-final-netlist equivalence with documented handling of SRAM/test structures
+that cannot be compared directly.
+
+## Engineering decision and failure records
+
+Maintain concise decision records for scratchpad over caches, four warps, eight
+lanes/banks, one tracker per warp, queue depths, SRAM organization, ASIC-first
+sequencing, and deferred FP32. Record alternatives, evidence, tradeoffs, and the
+conditions for revisiting each decision.
+
+Preserve representative real failure analyses with symptom, first mismatching
+trace, root cause, correction, regression, and the assertion or mutation that
+prevents recurrence. Do not create retrospective or fabricated failures.
+
+## FPGA implementation after ASIC closure
+
+Preserve the architectural core and substitute FPGA block-RAM wrappers behind
+the same memory interfaces. Add only board-level clock generation, synchronized
+reset, AXI-Lite or Wishbone/UART host transport, program/data loader, constraints,
+and logic-analyzer hooks in the FPGA shell. Do not distort the ASIC datapath for
+board-specific behavior.
+
+Run the same shared reduction and vector-add binaries and compare emulator,
+RTL, and hardware result memory plus counters. Publish achieved frequency,
+resource utilization, cycles, IPC, stalls, replay, barrier wait, and readback.
+The FPGA release closes only with reproducible bitstream generation and an
+emulator-to-RTL-to-board agreement report.
 
 ## Planned post-baseline extension
 
@@ -354,3 +561,16 @@ timing results, and updated power/area comparisons. The integer ASIC remains the
 required completed project if the FP32 extension is not started or does not close.
 Multi-cluster scheduling, caches, coherence, and external DRAM remain outside this
 extension.
+
+### Deferred architectural experiments
+
+Caches remain deferred because tags, misses, replacement, write policy,
+coherence, and ordering would obscure closure of the intentional scratchpad
+architecture. Multi-cluster scheduling remains deferred until one cluster has a
+complete host/memory interface and a measured bottleneck; it would require block
+dispatch, cluster IDs, global arbitration, completion aggregation, and
+inter-cluster ordering. Atomics remain deferred until ordinary cross-warp
+visibility and barrier ordering are fully closed. If any experiment is
+activated, it receives a frozen architectural contract, independent reference,
+new differential/formal/coverage evidence, and fresh ASIC PPA before being
+described as supported.

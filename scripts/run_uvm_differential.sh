@@ -55,6 +55,8 @@ sources=(
   "$repo_root/rtl/execute/architectural_writeback.sv"
   "$repo_root/rtl/control/dependency_scoreboard.sv"
   "$repo_root/rtl/control/fatal_fault_controller.sv"
+  "$repo_root/rtl/memory/banked_vector_memory.sv"
+  "$repo_root/rtl/memory/memory_subsystem.sv"
   "$repo_root/rtl/frontend/instruction_sram_adapter.sv"
   "$repo_root/rtl/frontend/warp_instruction_frontend.sv"
   "$repo_root/rtl/core/simt_core.sv"

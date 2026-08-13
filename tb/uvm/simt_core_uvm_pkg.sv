@@ -67,6 +67,29 @@ package simt_core_uvm_pkg;
     endtask
   endclass
 
+  class memory_sequence extends uvm_sequence #(core_command);
+    `uvm_object_utils(memory_sequence)
+    localparam bit[31:0] PROGRAM[7]='{
+      32'h38040000,32'h3808002a,32'h5c004800,32'h580c4000,
+      32'h64004800,32'h60104000,32'h78000000};
+    function new(string name="memory_sequence");super.new(name);endfunction
+    task body();
+      core_command item;int pf=$fopen("build/uvm/program.hex","w");
+      int cf=$fopen("build/uvm/run.cfg","w");
+      if(!pf||!cf)`uvm_fatal("PROGRAM","cannot write memory artifacts")
+      $fdisplay(cf,"4");$fclose(cf);
+      foreach(PROGRAM[index])begin
+        $fdisplay(pf,"%08x",PROGRAM[index]);
+        item=core_command::type_id::create($sformatf("program_%0d",index));
+        start_item(item);item.command=CORE_PROGRAM;item.address=6'(index);
+        item.data=PROGRAM[index];finish_item(item);
+      end
+      $fclose(pf);item=core_command::type_id::create("launch");
+      start_item(item);item.command=CORE_LAUNCH;item.warp_count=4;
+      item.launch_pc=0;finish_item(item);
+    endtask
+  endclass
+
   class core_clear_sequence extends uvm_sequence #(core_command);
     `uvm_object_utils(core_clear_sequence)
     function new(string name="core_clear_sequence");super.new(name);endfunction
@@ -413,7 +436,8 @@ package simt_core_uvm_pkg;
       option.per_instance=1;
       opcode: coverpoint sampled_opcode {
         bins integer_alu[]={[1:15]}; bins predicate[]={[16:21]};
-        bins control[]={26,27,29,30,31}; illegal_bins memory[]={22,23,24,25,28};
+        bins memory[]={22,23,24,25};bins control[]={26,27,29,30,31};
+        illegal_bins barrier[]={28};
       }
       warp: coverpoint sampled_warp {bins resident[]={0,1,2,3};}
       source: coverpoint sampled_source {bins alu={0};bins multiplier={1};}
@@ -583,6 +607,28 @@ package simt_core_uvm_pkg;
         `uvm_error("COUNTERS",$sformatf("instructions=%0d issue=%0d commit=%0d",
           test_sequence.instruction_count,vif.issue_count,
           vif.commit_count))
+      phase.drop_objection(this);
+    endtask
+  endclass
+
+  class memory_differential_test extends uvm_test;
+    `uvm_component_utils(memory_differential_test)
+    core_env env;virtual simt_core_if vif;
+    function new(string name,uvm_component parent);super.new(name,parent);endfunction
+    function void build_phase(uvm_phase phase);
+      super.build_phase(phase);env=core_env::type_id::create("env",this);
+      if(!uvm_config_db#(virtual simt_core_if)::get(this,"","vif",vif))
+        `uvm_fatal("NOVIF","test requires simt_core_if")
+    endfunction
+    task run_phase(uvm_phase phase);
+      memory_sequence test_sequence=memory_sequence::type_id::create("test_sequence");
+      phase.raise_objection(this);test_sequence.start(env.agent.sequencer);
+      repeat(2000)begin @(negedge vif.clk);if(vif.done||vif.fault)break;end
+      if(!vif.done||vif.fault)`uvm_error("MEMORY","memory kernel failed")
+      if(vif.issue_count!=28||vif.commit_count!=28)
+        `uvm_error("COUNTERS",$sformatf("issue=%0d commit=%0d",
+          vif.issue_count,vif.commit_count))
+      `uvm_info("MEMORY","general/shared memory trace completed",UVM_LOW)
       phase.drop_objection(this);
     endtask
   endclass

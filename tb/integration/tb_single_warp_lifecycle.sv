@@ -63,8 +63,8 @@ module tb_single_warp_lifecycle;
       if(done)break;end
     if(!done||mul_commits!=4)$fatal(1,"multiply completion count=%0d",mul_commits);
 
-    pulse_clear(); program_word(0,32'h70000000); // BAR
-    launch(); wait_fault(FAULT_UNSUPPORTED_STAGE,0);
+    pulse_clear(); program_word(0,32'h72000000); // predicated BAR is illegal at runtime
+    launch(); wait_fault(FAULT_BARRIER_VIOLATION,0);
     if(done||commit_valid)$fatal(1,"unsupported instruction committed");
 
     pulse_clear(); program_word(0,32'hfc000000); launch();

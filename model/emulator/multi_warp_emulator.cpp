@@ -73,7 +73,7 @@ bool MultiWarpEmulator::canonical(uint32_t word, Opcode opcode) const {
 
 bool MultiWarpEmulator::eligible(unsigned index) const {
   const auto& warp = warps_[index];
-  if (!warp.valid || warp.pc >= program_.size()) return false;
+  if (!warp.valid || warp.barrier_wait || warp.pc >= program_.size()) return false;
   const uint32_t word = program_[warp.pc];
   const uint32_t code = word >> 26;
   if (code > 31 || !canonical(word, Opcode(code))) return true;
@@ -265,9 +265,42 @@ bool MultiWarpEmulator::execute(unsigned index) {
       warp.active &= Mask(~execute_mask);
       if (!warp.active && warp.stack.empty()) warp.valid = false;
       break;
-    case Opcode::BAR: case Opcode::LD_G: case Opcode::LD_S:
-    case Opcode::ST_G: case Opcode::ST_S:
-      fault(old_pc); return false;
+    case Opcode::LD_G: case Opcode::LD_S:
+    case Opcode::ST_G: case Opcode::ST_S: {
+      const bool shared = opcode == Opcode::LD_S || opcode == Opcode::ST_S;
+      const bool store = opcode == Opcode::ST_G || opcode == Opcode::ST_S;
+      auto* memory = shared ? shared_memory_.data() : scratchpad_.data();
+      const size_t memory_size = shared ? shared_memory_.size() : scratchpad_.size();
+      std::array<uint32_t, kLanes> addresses{};
+      bool invalid = false;
+      each([&](unsigned lane) {
+        addresses[lane] = warp.registers[ra][lane] + uint32_t(imm);
+        invalid |= (addresses[lane] & 3u) != 0 ||
+                   addresses[lane] > memory_size - 4;
+      });
+      if (invalid) { fault(old_pc); return false; }
+      if (!store) { event.writes_gpr = true; event.gpr_mask = execute_mask; }
+      each([&](unsigned lane) {
+        const auto address = addresses[lane];
+        if (store) {
+          const auto value = warp.registers[rb][lane];
+          for (unsigned byte = 0; byte < 4; ++byte)
+            memory[address + byte] = uint8_t(value >> (byte * 8));
+        } else {
+          uint32_t value = 0;
+          for (unsigned byte = 0; byte < 4; ++byte)
+            value |= uint32_t(memory[address + byte]) << (byte * 8);
+          event.gpr_data[lane] = value;
+        }
+      });
+      break;
+    }
+    case Opcode::BAR:
+      if (pred_enable || warp.active != 0xff) {
+        fault(old_pc); return false;
+      }
+      warp.barrier_wait = true;
+      break;
   }
   commit_event(event);
   return true;
@@ -292,6 +325,12 @@ bool MultiWarpEmulator::run(uint64_t max_cycles) {
       if (issued) {
         ++issues_;
         next_warp_ = (warp + 1) % resident_warps_;
+        bool release_barrier = true;
+        for (unsigned resident = 0; resident < resident_warps_; ++resident)
+          release_barrier &= warps_[resident].barrier_wait;
+        if (release_barrier)
+          for (unsigned resident = 0; resident < resident_warps_; ++resident)
+            warps_[resident].barrier_wait = false;
       }
       break;
     }
