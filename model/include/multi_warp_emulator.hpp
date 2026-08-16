@@ -46,6 +46,7 @@ class MultiWarpEmulator {
     bool valid{true};
     bool ssy_valid{};
     bool barrier_wait{};
+    uint32_t barrier_pc{};
   };
 
   struct TraceEvent {
@@ -68,6 +69,7 @@ class MultiWarpEmulator {
   uint8_t epoch_{};
   unsigned next_warp_{};
   uint64_t cycle_{}, issues_{};
+  uint32_t barrier_wait_cycles_{};
   bool faulted_{};
   uint32_t fault_pc_{};
   std::vector<uint32_t> program_;

@@ -38,7 +38,7 @@ class EmulatorTests(unittest.TestCase):
   s,o=self.run_program('stack_underflow.s',ok=False);self.assertIn('fault=6',o);self.assertIn('PC 0',s)
  def test_stack_overflow_fault(self):
   s,o=self.run_program('stack_overflow.s',ok=False);self.assertIn('fault=5',o);self.assertIn('PC 8',s)
- def run_multiwarp(self,name,warps=4):
+ def run_multiwarp(self,name,warps=4,ok=True):
   import struct
   with tempfile.TemporaryDirectory() as d:
    b=pathlib.Path(d)/'p.bin'; trace=pathlib.Path(d)/'trace.txt'
@@ -46,12 +46,16 @@ class EmulatorTests(unittest.TestCase):
    b.write_bytes(struct.pack('<%dI'%len(ws),*ws))
    r=subprocess.run([str(ROOT/'build/simt-emulator'),str(b),'--warps',str(warps),
                      '--trace',str(trace)],text=True,capture_output=True)
-   self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+   self.assertEqual(r.returncode,0 if ok else 1,r.stdout+r.stderr)
    events=[line.split() for line in trace.read_text().splitlines()]
    self.assertTrue(all(event[0]=='C' for event in events))
    keys=[(int(event[1]),int(event[2]),int(event[3])) for event in events]
    self.assertEqual(len(keys),len(set(keys)))
-   return events,r.stdout
+  return events,r.stdout
+ def test_four_warp_barrier_deadlock_fault(self):
+  events,output=self.run_multiwarp('barrier_deadlock.s',ok=False)
+  self.assertEqual(len(events),20)
+  self.assertIn('fault=1 fault_pc=5',output)
  def test_explicit_one_warp_uses_canonical_multiwarp_trace(self):
   events,output=self.run_multiwarp('divergence.s',1)
   self.assertEqual(len(events),11)

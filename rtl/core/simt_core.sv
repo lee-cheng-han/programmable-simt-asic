@@ -1,7 +1,8 @@
 module simt_core #(
   parameter int unsigned IMEM_WORDS = 64,
   parameter int unsigned IMEM_ADDR_W = $clog2(IMEM_WORDS),
-  parameter bit USE_IHP_IMEM = 1'b0
+  parameter bit USE_IHP_IMEM = 1'b0,
+  parameter int unsigned BARRIER_TIMEOUT_CYCLES = 256
 ) (
   input  logic clk,
   input  logic rst,
@@ -45,7 +46,14 @@ module simt_core #(
   logic [KERNEL_EPOCH_WIDTH-1:0] epoch_q;
   logic launched_q, done_q;
   logic[WARPS-1:0]resident_warps_q,barrier_wait_q;
-  logic barrier_release;
+  logic [WARPS-1:0][31:0] barrier_pc_q;
+  localparam int unsigned BARRIER_TIMEOUT_WIDTH =
+    BARRIER_TIMEOUT_CYCLES <= 1 ? 1 : $clog2(BARRIER_TIMEOUT_CYCLES);
+  logic [BARRIER_TIMEOUT_WIDTH-1:0] barrier_timeout_q;
+  logic barrier_release, barrier_arrival, barrier_release_with_arrival;
+  logic barrier_timeout_fault;
+  logic [31:0] barrier_fault_pc;
+  logic barrier_fault_pc_found;
 
   logic [WARPS-1:0][31:0] warp_instruction;
   logic [WARPS-1:0][31:0] fetch_buffer_pc;
@@ -196,6 +204,22 @@ module simt_core #(
     .grant_accept_i(issue_fire));
   assign barrier_release=launched_q&&resident_warps_q!='0&&
                          (barrier_wait_q&resident_warps_q)==resident_warps_q;
+  assign barrier_arrival=scheduler_valid&&selected_opcode==OP_BAR;
+  assign barrier_release_with_arrival=launched_q&&resident_warps_q!='0&&
+    ((barrier_wait_q|(barrier_arrival?(WARPS'(1'b1)<<scheduler_warp):'0))&
+      resident_warps_q)==resident_warps_q;
+  assign barrier_timeout_fault=BARRIER_TIMEOUT_CYCLES>0&&
+    barrier_wait_q!='0&&!barrier_release_with_arrival&&
+    barrier_timeout_q==BARRIER_TIMEOUT_WIDTH'(BARRIER_TIMEOUT_CYCLES-1);
+  always_comb begin
+    barrier_fault_pc='0;
+    barrier_fault_pc_found=1'b0;
+    for(int unsigned warp=0;warp<WARPS;warp++)
+      if(barrier_wait_q[warp]&&!barrier_fault_pc_found)begin
+        barrier_fault_pc=barrier_pc_q[warp];
+        barrier_fault_pc_found=1'b1;
+      end
+  end
 
   always_comb begin
     selected_opcode = opcode[scheduler_warp];
@@ -347,7 +371,10 @@ module simt_core #(
                        branch_not_taken_mask != '0;
     control_fault = 1'b0;
     control_fault_code = FAULT_NONE;
-    if (scheduler_valid) begin
+    if(barrier_timeout_fault)begin
+      control_fault=1'b1;
+      control_fault_code=FAULT_BARRIER_DEADLOCK;
+    end else if (scheduler_valid) begin
       case (selected_opcode)
         OP_SSY: if (stack_depth_q[scheduler_warp] ==
                     $clog2(SIMT_STACK_DEPTH+1)'(SIMT_STACK_DEPTH)) begin
@@ -479,7 +506,7 @@ module simt_core #(
     .memory_fault_pc_i(memory_fault_pc),
     .control_fault_i(control_fault),
     .control_fault_code_i(control_fault_code),
-    .control_fault_pc_i(selected_pc),
+    .control_fault_pc_i(barrier_timeout_fault?barrier_fault_pc:selected_pc),
     .fatal_now_o(fatal_now), .fault_valid_o(fault_valid),
     .fault_code_o(fault_code_o), .fault_pc_o(fault_pc_o),
     .simultaneous_causes_o(simultaneous_causes));
@@ -502,7 +529,8 @@ module simt_core #(
         end
       end
       epoch_q <= '0;
-      resident_warps_q<='0;barrier_wait_q<='0;
+      resident_warps_q<='0;barrier_wait_q<='0;barrier_pc_q<='0;
+      barrier_timeout_q<='0;
       launched_q <= 1'b0;
       done_q <= 1'b0;
       cycle_count_o <= '0;
@@ -518,7 +546,8 @@ module simt_core #(
         ssy_valid_q[warp] <= 1'b0;
       end
       epoch_q <= epoch_q + 1'b1;
-      resident_warps_q<='0;barrier_wait_q<='0;
+      resident_warps_q<='0;barrier_wait_q<='0;barrier_pc_q<='0;
+      barrier_timeout_q<='0;
       launched_q <= 1'b0;
       done_q <= 1'b0;
       cycle_count_o <= '0;
@@ -535,12 +564,14 @@ module simt_core #(
           ssy_valid_q[warp] <= 1'b0;
           resident_warps_q[warp]<=warp<launch_warp_count_i;
           barrier_wait_q[warp]<=1'b0;
+          barrier_pc_q[warp]<='0;
         end
         launched_q <= 1'b1;
         done_q <= 1'b0;
         cycle_count_o <= '0;
         issue_count_o <= '0;
         commit_count_o <= '0;
+        barrier_timeout_q<='0;
       end else if (launched_q && !done_q && !fault_valid) begin
         cycle_count_o <= cycle_count_o + 1'b1;
         if (issue_fire) issue_count_o <= issue_count_o + 1'b1;
@@ -548,7 +579,13 @@ module simt_core #(
           commit_count_o <= commit_count_o + 1'b1;
       end
 
-      if(barrier_release)barrier_wait_q<='0;
+      if(barrier_release)begin
+        barrier_wait_q<='0;
+        barrier_timeout_q<='0;
+      end else if(barrier_wait_q=='0||barrier_release_with_arrival)
+        barrier_timeout_q<='0;
+      else if(BARRIER_TIMEOUT_CYCLES>0&&!barrier_timeout_fault)
+        barrier_timeout_q<=barrier_timeout_q+1'b1;
 
       if (issue_fire) begin
         warp_sequence_q[scheduler_warp] <=
@@ -612,6 +649,7 @@ module simt_core #(
         end else if(selected_opcode==OP_BAR)begin
           warp_pc_q[scheduler_warp]<=selected_pc+1'b1;
           barrier_wait_q[scheduler_warp]<=1'b1;
+          barrier_pc_q[scheduler_warp]<=selected_pc;
         end else if (selected_opcode == OP_EXIT) begin
           warp_pc_q[scheduler_warp] <= selected_pc + 1'b1;
           warp_active_mask_q[scheduler_warp] <=
@@ -657,6 +695,21 @@ module simt_core #(
       control_fault |-> !issue_fire;
   endproperty
   assert property (p_control_fault_suppresses_issue);
+
+  property p_barrier_release_requires_all_residents;
+    @(posedge clk) disable iff (rst || clear_i)
+      barrier_release |-> resident_warps_q != '0 &&
+        (barrier_wait_q & resident_warps_q) == resident_warps_q;
+  endproperty
+  assert property (p_barrier_release_requires_all_residents);
+
+  for (genvar warp = 0; warp < WARPS; warp++) begin : gen_barrier_properties
+    property p_waiting_warp_cannot_request;
+      @(posedge clk) disable iff (rst || clear_i)
+        barrier_wait_q[warp] |-> !scheduler_request[warp];
+    endproperty
+    assert property (p_waiting_warp_cannot_request);
+  end
 
   always_ff @(posedge clk) begin
     if (!rst && !clear_i && issue_fire) begin

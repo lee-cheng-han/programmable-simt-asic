@@ -8,7 +8,8 @@ module tb_barrier_deadlock_watchdog;
   completion_record_t unused_record=commit;logic[63:0]unused_counts=cycles^issues^commits;
   /* verilator lint_on UNUSEDSIGNAL */
   /* verilator lint_off BLKSEQ */ always #5 clk=~clk; /* verilator lint_on BLKSEQ */
-  simt_core dut(.clk,.rst,.clear_i(clear),.prog_valid_i(prog_valid),.prog_addr_i(prog_addr),
+  simt_core #(.BARRIER_TIMEOUT_CYCLES(32)) dut(.clk,.rst,.clear_i(clear),
+    .prog_valid_i(prog_valid),.prog_addr_i(prog_addr),
     .prog_data_i(prog_data),.launch_valid_i(launch_valid),.launch_ready_o(launch_ready),
     .launch_pc_i(launch_pc),.launch_warp_count_i(launch_warp_count),
     .fetch_response_ready_i(1'b1),.execute_completion_ready_i(1'b1),.commit_ready_i(1'b1),
@@ -31,7 +32,9 @@ module tb_barrier_deadlock_watchdog;
     put(4,enc(OP_BAR,0,0,0,0));put(5,enc(OP_EXIT,0,0,0,0));
     @(negedge clk);if(!launch_ready)$fatal(1,"launch not ready");launch_valid=1;
     @(posedge clk);@(negedge clk);launch_valid=0;
-    repeat(300)begin @(negedge clk);if(done||fault)$fatal(1,"expected missing-warp deadlock");end
-    $display("PASS tb_barrier_deadlock_watchdog detected missing-warp deadlock");$finish;
+    repeat(100)begin @(negedge clk);if(done)$fatal(1,"deadlock asserted done");if(fault)break;end
+    if(!fault||fault_code!=FAULT_BARRIER_DEADLOCK||fault_pc!=4)
+      $fatal(1,"missing watchdog fault code=%0d pc=%0d",fault_code,fault_pc);
+    $display("PASS tb_barrier_deadlock_watchdog code=%0d pc=%0d",fault_code,fault_pc);$finish;
   end
 endmodule

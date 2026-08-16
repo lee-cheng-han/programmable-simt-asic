@@ -45,7 +45,8 @@ package simt_gpu_pkg;
     FAULT_SIMT_CONTROL          = 4'd7,
     FAULT_MEMORY_MISALIGNED     = 4'd8,
     FAULT_MEMORY_OUT_OF_RANGE   = 4'd9,
-    FAULT_BARRIER_VIOLATION     = 4'd10
+    FAULT_BARRIER_VIOLATION     = 4'd10,
+    FAULT_BARRIER_DEADLOCK      = 4'd11
   } fault_code_t;
 
   typedef struct packed {

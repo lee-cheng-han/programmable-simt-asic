@@ -90,6 +90,53 @@ package simt_core_uvm_pkg;
     endtask
   endclass
 
+  class constrained_random_memory_sequence extends uvm_sequence #(core_command);
+    `uvm_object_utils(constrained_random_memory_sequence)
+    rand int unsigned pair_count;
+    rand bit conflict_pattern;
+    rand bit [7:0] base_word;
+    int unsigned instruction_count;
+    constraint useful_pairs {pair_count inside {[6:14]};}
+    constraint safe_base {base_word inside {[0:32]};}
+    function new(string name="constrained_random_memory_sequence");super.new(name);endfunction
+    function bit[31:0] encode(bit[5:0]opcode,bit[3:0]rd,bit[3:0]ra,
+                              bit[3:0]rb,bit[9:0]imm);
+      return {opcode,4'b0,rd,ra,rb,imm};
+    endfunction
+    task send_word(int unsigned index,bit[31:0]word,int file_handle);
+      core_command item=core_command::type_id::create($sformatf("program_%0d",index));
+      $fdisplay(file_handle,"%08x",word);
+      start_item(item);item.command=CORE_PROGRAM;item.address=6'(index);
+      item.data=word;finish_item(item);
+    endtask
+    task body();
+      core_command launch;int unsigned pc=0;
+      int program_file=$fopen("build/uvm/program.hex","w");
+      int config_file=$fopen("build/uvm/run.cfg","w");
+      if(!program_file||!config_file)
+        `uvm_fatal("PROGRAM","cannot write random-memory artifacts")
+      $fdisplay(config_file,"4");$fclose(config_file);
+      // R1 becomes a per-lane byte offset. Shift 2 is conflict-free; shift 5
+      // maps every lane to bank zero and forces deterministic replay.
+      send_word(pc++,encode(6'd29,4'd1,0,0,10'd3),program_file);
+      send_word(pc++,encode(6'd14,4'd2,0,0,conflict_pattern?10'd5:10'd2),program_file);
+      send_word(pc++,encode(6'd10,4'd1,4'd1,4'd2,0),program_file);
+      send_word(pc++,encode(6'd14,4'd2,0,0,10'h155),program_file);
+      for(int unsigned pair=0;pair<pair_count;pair++)begin
+        bit shared=$urandom_range(0,1);
+        bit[9:0] offset=10'((base_word+pair)*4);
+        bit[3:0] destination=4'(3+(pair%13));
+        send_word(pc++,encode(shared?6'd25:6'd23,0,4'd1,4'd2,offset),program_file);
+        send_word(pc++,encode(shared?6'd24:6'd22,destination,4'd1,0,offset),program_file);
+      end
+      send_word(pc++,32'h78000000,program_file);
+      instruction_count=pc;$fclose(program_file);
+      launch=core_command::type_id::create("launch");
+      start_item(launch);launch.command=CORE_LAUNCH;launch.warp_count=4;
+      launch.launch_pc=0;finish_item(launch);
+    endtask
+  endclass
+
   class core_clear_sequence extends uvm_sequence #(core_command);
     `uvm_object_utils(core_clear_sequence)
     function new(string name="core_clear_sequence");super.new(name);endfunction
@@ -297,6 +344,10 @@ package simt_core_uvm_pkg;
         bins stack_overflow={FAULT_SIMT_STACK_OVERFLOW};
         bins stack_underflow={FAULT_SIMT_STACK_UNDERFLOW};
         bins control={FAULT_SIMT_CONTROL};
+        bins memory_misaligned={FAULT_MEMORY_MISALIGNED};
+        bins memory_out_of_range={FAULT_MEMORY_OUT_OF_RANGE};
+        bins barrier_violation={FAULT_BARRIER_VIOLATION};
+        bins barrier_deadlock={FAULT_BARRIER_DEADLOCK};
       }
     endgroup
     function new(string name,uvm_component parent);
@@ -432,6 +483,8 @@ package simt_core_uvm_pkg;
     bit mask_class_seen[4];
     bit execute_stall_seen[2];
     bit writeback_stall_seen[2];
+    bit memory_kind_seen[2];
+    bit memory_space_seen[2];
     covergroup architectural_commits;
       option.per_instance=1;
       opcode: coverpoint sampled_opcode {
@@ -457,6 +510,15 @@ package simt_core_uvm_pkg;
       source_by_execute_stall: cross source,execute_stall;
       source_by_writeback_stall: cross source,writeback_stall;
       opcode_by_mask: cross opcode,mask_class;
+      memory_kind: coverpoint sampled_opcode {
+        bins load={22,24};bins store={23,25};
+        ignore_bins non_memory={[0:21],[26:63]};
+      }
+      memory_space: coverpoint sampled_opcode {
+        bins general={22,23};bins shared={24,25};
+        ignore_bins non_memory={[0:21],[26:63]};
+      }
+      memory_kind_by_space: cross memory_kind,memory_space;
     endgroup
     function new(string name,uvm_component parent);
       super.new(name,parent);architectural_commits=new;
@@ -477,6 +539,10 @@ package simt_core_uvm_pkg;
       resident_warps_seen[sampled_resident_warps]=1'b1;
       execute_stall_seen[sampled_execute_stall]=1'b1;
       writeback_stall_seen[sampled_writeback_stall]=1'b1;
+      if(sampled_opcode inside {22,24}) memory_kind_seen[0]=1'b1;
+      if(sampled_opcode inside {23,25}) memory_kind_seen[1]=1'b1;
+      if(sampled_opcode inside {22,23}) memory_space_seen[0]=1'b1;
+      if(sampled_opcode inside {24,25}) memory_space_seen[1]=1'b1;
       if(sampled_mask==8'h00) mask_class_seen[0]=1'b1;
       else if(sampled_mask==8'hff) mask_class_seen[1]=1'b1;
       else if(sampled_mask inside {8'h0f,8'hf0}) mask_class_seen[2]=1'b1;
@@ -502,6 +568,10 @@ package simt_core_uvm_pkg;
         $fdisplay(file_handle,"execute_stall %0d",index);
       foreach(writeback_stall_seen[index]) if(writeback_stall_seen[index])
         $fdisplay(file_handle,"writeback_stall %0d",index);
+      foreach(memory_kind_seen[index]) if(memory_kind_seen[index])
+        $fdisplay(file_handle,"memory_kind %0d",index);
+      foreach(memory_space_seen[index]) if(memory_space_seen[index])
+        $fdisplay(file_handle,"memory_space %0d",index);
       $fclose(file_handle);
     endfunction
   endclass
@@ -629,6 +699,41 @@ package simt_core_uvm_pkg;
         `uvm_error("COUNTERS",$sformatf("issue=%0d commit=%0d",
           vif.issue_count,vif.commit_count))
       `uvm_info("MEMORY","general/shared memory trace completed",UVM_LOW)
+      phase.drop_objection(this);
+    endtask
+  endclass
+
+  class constrained_random_memory_differential_test extends uvm_test;
+    `uvm_component_utils(constrained_random_memory_differential_test)
+    core_env env;virtual simt_core_if vif;
+    function new(string name,uvm_component parent);super.new(name,parent);endfunction
+    function void build_phase(uvm_phase phase);
+      super.build_phase(phase);env=core_env::type_id::create("env",this);
+      if(!uvm_config_db#(virtual simt_core_if)::get(this,"","vif",vif))
+        `uvm_fatal("NOVIF","test requires simt_core_if")
+    endfunction
+    task run_phase(uvm_phase phase);
+      constrained_random_memory_sequence test_sequence=
+        constrained_random_memory_sequence::type_id::create("test_sequence");
+      phase.raise_objection(this);
+      if(!test_sequence.randomize())
+        `uvm_fatal("RANDOMIZE","memory sequence randomization failed")
+      test_sequence.start(env.agent.sequencer);
+      repeat(6000)begin
+        @(negedge vif.clk);if(vif.done||vif.fault)break;
+        if(vif.running)begin
+          vif.execute_completion_ready=($urandom_range(0,3)!=0);
+          vif.commit_ready=($urandom_range(0,3)!=0);
+        end
+      end
+      vif.execute_completion_ready=1;vif.commit_ready=1;
+      if(!vif.done||vif.fault)`uvm_error("MEMORY_RANDOM","kernel failed")
+      if(vif.issue_count!=64'(test_sequence.instruction_count*4)||
+         vif.commit_count!=64'(test_sequence.instruction_count*4))
+        `uvm_error("COUNTERS",$sformatf("instructions=%0d issue=%0d commit=%0d",
+          test_sequence.instruction_count,vif.issue_count,vif.commit_count))
+      `uvm_info("MEMORY_RANDOM",$sformatf("pairs=%0d conflict=%0d commits=%0d",
+        test_sequence.pair_count,test_sequence.conflict_pattern,vif.commit_count),UVM_LOW)
       phase.drop_objection(this);
     endtask
   endclass

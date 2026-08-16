@@ -34,6 +34,7 @@ void MultiWarpEmulator::reset_kernel_state(bool preserve_trace) {
   next_warp_ = 0;
   faulted_ = false;
   fault_pc_ = 0;
+  barrier_wait_cycles_ = 0;
   multiplies_.clear();
   if (!preserve_trace) trace_.clear();
   warps_ = {};
@@ -300,6 +301,7 @@ bool MultiWarpEmulator::execute(unsigned index) {
         fault(old_pc); return false;
       }
       warp.barrier_wait = true;
+      warp.barrier_pc = old_pc;
       break;
   }
   commit_event(event);
@@ -331,8 +333,21 @@ bool MultiWarpEmulator::run(uint64_t max_cycles) {
         if (release_barrier)
           for (unsigned resident = 0; resident < resident_warps_; ++resident)
             warps_[resident].barrier_wait = false;
+        if (release_barrier) barrier_wait_cycles_ = 0;
       }
       break;
+    }
+    bool any_barrier_wait = false;
+    uint32_t first_barrier_pc = 0;
+    for (unsigned warp = 0; warp < resident_warps_; ++warp) {
+      if (!warps_[warp].barrier_wait) continue;
+      if (!any_barrier_wait) first_barrier_pc = warps_[warp].barrier_pc;
+      any_barrier_wait = true;
+    }
+    if (any_barrier_wait) {
+      if (++barrier_wait_cycles_ >= 256) fault(first_barrier_pc);
+    } else {
+      barrier_wait_cycles_ = 0;
     }
     ++cycle_;
   }

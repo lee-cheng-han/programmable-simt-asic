@@ -1,0 +1,8 @@
+S2R R1, WID
+MOVI R2, 0
+SETP.EQ P0, R1, R2
+@!P0 BRA wait
+EXIT
+wait:
+BAR
+EXIT

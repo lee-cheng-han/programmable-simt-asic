@@ -9,7 +9,8 @@ module tb_four_warp_barrier;
   /* verilator lint_off UNUSEDSIGNAL */ logic unused_running=running;
   logic[63:0]unused_cycles=cycles; /* verilator lint_on UNUSEDSIGNAL */
   /* verilator lint_off BLKSEQ */ always #5 clk=~clk; /* verilator lint_on BLKSEQ */
-  simt_core dut(.clk,.rst,.clear_i(clear),.prog_valid_i(prog_valid),.prog_addr_i(prog_addr),
+  simt_core #(.BARRIER_TIMEOUT_CYCLES(8)) dut(.clk,.rst,.clear_i(clear),
+    .prog_valid_i(prog_valid),.prog_addr_i(prog_addr),
     .prog_data_i(prog_data),.launch_valid_i(launch_valid),.launch_ready_o(launch_ready),
     .launch_pc_i(launch_pc),.launch_warp_count_i(launch_warp_count),
     .fetch_response_ready_i(1'b1),.execute_completion_ready_i(1'b1),.commit_ready_i(1'b1),

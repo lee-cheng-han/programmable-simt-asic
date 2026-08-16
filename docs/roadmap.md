@@ -249,6 +249,12 @@ lane replay and load broadcast, full-warp barriers, a missing-warp simulation
 watchdog, and a four-warp shared-memory reduction that produces six in every
 lane after synchronizing contributions from warp IDs zero through three.
 
+The watchdog is now architectural rather than testbench-only: a parameterized
+timeout raises sticky `FAULT_BARRIER_DEADLOCK`, reports the oldest waiting
+barrier PC, suppresses further issue/commit through the fatal path, and is
+mirrored by the multi-warp reference model. Directed tests cover successful
+four-warp release, no early post-barrier commit, and a missing-warp timeout.
+
 ### General scratchpad and memory completion
 
 Integrate the 4 KiB eight-bank scratchpad, four trackers, response collector,
@@ -265,10 +271,9 @@ validation, and directed fifth-operation/same-warp backpressure checks.
 
 Freeze and verify cross-warp visibility, barrier ordering, same-address store
 behavior, memory lifetime across launch/clear/reset/fault/BIST, and the explicit
-absence of baseline atomics. Replace the testbench-only missing-warp timeout with
-a configurable architectural barrier watchdog, sticky
-`FAULT_BARRIER_DEADLOCK`, waiting-warp snapshot, and host-visible control. Prove
-that valid barriers cannot trip it and that older memory drains before arrival.
+absence of baseline atomics. Add host-visible watchdog control and a waiting-warp
+snapshot around the implemented configurable architectural timeout. Prove that
+valid barriers cannot trip it and that older memory drains before arrival.
 
 Extend the UVM environment with memory-aware sequence items, constrained-random
 addresses and masks, general/shared selection, broadcast, every bank-conflict
@@ -278,6 +283,15 @@ sequences coordinating four warps. Add an optional diagnostic memory trace with
 epoch, warp, sequence, lane, space, address, bank, row, tracker, service cycle,
 response cycle, and fault result; the architectural commit trace remains the
 pass/fail authority.
+
+Current progress: the differential environment now contains a seeded legal
+constrained-random memory sequence with six to fourteen store/load pairs across
+general and shared spaces, selectable conflict-free or all-lanes-bank-zero
+address patterns, randomized completion/writeback backpressure, automatic
+instruction-count checking, and model trace comparison. Functional coverage
+tracks all four memory opcodes plus load/store and general/shared classification.
+The test passes XSim compilation and elaboration; simulation remains blocked on
+this host when the XSim runtime cannot check out its license.
 
 Close fault atomicity across load/store, both spaces, every invalid-lane
 position, inactive invalid lanes, multiple invalid lanes, conflicts, stalled

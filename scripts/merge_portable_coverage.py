@@ -15,6 +15,8 @@ EXPECTED = {
     "mask_class": {1, 2, 3},
     "execute_stall": {0, 1},
     "writeback_stall": {0, 1},
+    "memory_kind": {0, 1},
+    "memory_space": {0, 1},
 }
 
 observed = {name: set() for name in EXPECTED}

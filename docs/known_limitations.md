@@ -21,6 +21,8 @@ are machine-checked, and a macro-only trial floorplan passes; integrated mapped
 timing, PDN, and routing are not yet evidence. The RTL now has 4 KiB general and
 2 KiB shared eight-bank behavioral arrays, four memory trackers, bank replay,
 broadcast loads, full-warp barriers, and a passing four-warp shared reduction.
+Missing-warp barriers raise a parameterized architectural deadlock fault in RTL
+and the multi-warp model; host configuration and snapshot visibility are pending.
 Qualified data-SRAM wrappers, Wishbone, DFT, memory-specific bounded proofs, and
 physical implementation are not yet integrated.
 
@@ -45,3 +47,8 @@ test compiles and elaborates, but its latest XSim run was blocked before
 simulation by license checkout on this host, so memory differential and coverage
 closure remain open. DFT, routed timing, and signoff remain outside the current
 release boundary.
+
+The seeded constrained-random memory differential test is implemented and
+successfully compiles/elaborates under XSim 2026.1. Its latest attempted runtime
+was stopped during simulator initialization by license checkout, before any RTL
+cycle executed; therefore it is not counted as a passing differential seed.
