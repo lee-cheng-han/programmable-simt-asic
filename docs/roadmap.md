@@ -293,6 +293,12 @@ tracks all four memory opcodes plus load/store and general/shared classification
 The test passes XSim compilation and elaboration; simulation remains blocked on
 this host when the XSim runtime cannot check out its license.
 
+The bank engine now has a passing six-cycle bounded safety proof for readiness,
+pending-mask consistency, atomic fault response, and stalled-response stability.
+The deterministic mutation suite detects 13/13 injected defects with no
+survivors or invalid mutants, including inactive-lane validation, skipped fault
+prevalidation, wrong bank selection, and duplicate same-warp tracker allocation.
+
 Close fault atomicity across load/store, both spaces, every invalid-lane
 position, inactive invalid lanes, multiple invalid lanes, conflicts, stalled
 completion, clear, and older work. Assertions and formal properties cover
@@ -302,8 +308,8 @@ write, no faulting-load GPR write, barrier-release preconditions, blocked-warp
 issue suppression, memory-inclusive done, and cancellation under clear/epoch
 change. Liveness is proven under explicit fairness assumptions.
 
-Expand mutation testing with wrong bank/row selection, skipped or incorrectly
-validated lanes, permitted misalignment, partial fault commits, prevalidation
+Continue mutation testing with wrong row selection, permitted misalignment,
+partial fault commits, prevalidation
 store leakage, reversed lane priority, duplicate same-warp trackers, premature
 tracker free, omitted epoch matching, early barrier release, ignored pre-barrier
 memory, and early done. Publish injected/detected/invalid/surviving counts.

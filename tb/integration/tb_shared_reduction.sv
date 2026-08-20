@@ -2,7 +2,10 @@ module tb_shared_reduction;
   import simt_gpu_pkg::*;import simt_isa_pkg::*;
   logic clk=0,rst,clear,prog_valid,launch_valid,launch_ready,running,done,fault,commit_valid;
   logic[5:0]prog_addr;logic[31:0]prog_data,launch_pc,fault_pc;logic[2:0]launch_warp_count;
-  fault_code_t fault_code;completion_record_t commit;
+  fault_code_t fault_code;
+  /* verilator lint_off UNUSEDSIGNAL */
+  completion_record_t commit;
+  /* verilator lint_on UNUSEDSIGNAL */
   logic[63:0]cycles,issues,commits;int observed,results,barriers;
   /* verilator lint_off UNUSEDSIGNAL */ logic unused_running=running;
   logic[63:0]unused_cycles=cycles; /* verilator lint_on UNUSEDSIGNAL */

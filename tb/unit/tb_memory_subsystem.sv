@@ -47,7 +47,10 @@ module tb_memory_subsystem;
     request_active_mask='1;request_mask='1;request_gpr_dst=3;completion_ready=0;checks=0;
     for(int lane=0;lane<LANES;lane++)begin request_address[lane]=0;request_store_data[lane]=0;end
     repeat(2)@(posedge clk);@(negedge clk);rst=0;
-    issue(0,0,1,0);issue(1,1,1,0);issue(2,0,1,0);issue(3,1,1,0);
+    issue(0,0,1,0);
+    @(negedge clk);request_warp=0;#1;
+    if(request_ready)$fatal(1,"same warp accepted a second tracker");checks++;
+    issue(1,1,1,0);issue(2,0,1,0);issue(3,1,1,0);
     if(request_ready||tracker_occupancy!=4||warp_busy!=4'b1111)
       $fatal(1,"four-tracker capacity mismatch occupancy=%0d busy=%b",tracker_occupancy,warp_busy);
     // Same-warp and fifth requests remain blocked until their tracker retires.

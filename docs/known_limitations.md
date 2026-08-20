@@ -23,8 +23,9 @@ timing, PDN, and routing are not yet evidence. The RTL now has 4 KiB general and
 broadcast loads, full-warp barriers, and a passing four-warp shared reduction.
 Missing-warp barriers raise a parameterized architectural deadlock fault in RTL
 and the multi-warp model; host configuration and snapshot visibility are pending.
-Qualified data-SRAM wrappers, Wishbone, DFT, memory-specific bounded proofs, and
-physical implementation are not yet integrated.
+Qualified data-SRAM wrappers, Wishbone, DFT, and physical implementation are not
+yet integrated. A six-cycle bounded bank-engine safety proof now passes; broader
+tracker, ordering, and liveness proofs remain open.
 
 The current performance numbers are RTL cycle measurements for a small arithmetic
 throughput workload, not post-synthesis frequency or silicon results. Assembly
@@ -41,8 +42,9 @@ underflow side-effect suppression, sticky-fault clear, and an epoch-1 four-warp
 recovery relaunch. The portable report covers all 43 approved pre-memory risk
 bins across opcode, warp, resident-warp count, completion source, mask class,
 and execution/writeback stall state. Three bounded/exhaustive component proofs
-pass, and the mutation suite detects 9/9 injected defects with no survivors or
-invalid mutants. These results close the pre-memory gate. The new memory UVM
+pass, and the expanded mutation suite detects 13/13 injected defects with no
+survivors or invalid mutants. These results preserve the pre-memory gate and add
+initial memory-focused evidence. The new memory UVM
 test compiles and elaborates, but its latest XSim run was blocked before
 simulation by license checkout on this host, so memory differential and coverage
 closure remain open. DFT, routed timing, and signoff remain outside the current

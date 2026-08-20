@@ -42,8 +42,11 @@ module tb_banked_vector_memory;
       request_address[lane]=word_t'(lane*4);
       request_store_data[lane]=32'h100+lane;
     end
-    issue(1,8'hff);finish_response();
-    issue(0,8'hff);while(!response_valid)@(negedge clk);
+    issue(1,8'hff);@(posedge clk);@(negedge clk);
+    if(!response_valid)$fatal(1,"distinct-bank store did not complete in one cycle");
+    finish_response();
+    issue(0,8'hff);@(posedge clk);@(negedge clk);
+    if(!response_valid)$fatal(1,"distinct-bank load did not complete in one cycle");
     if(response_mask!==8'hff||pending_mask!='0)$fatal(1,"response metadata mismatch");
     for(int lane=0;lane<LANES;lane++)
       if(response_load_data[lane]!==word_t'(32'h100+lane))

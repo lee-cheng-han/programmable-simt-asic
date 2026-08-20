@@ -160,6 +160,12 @@ with no survivors or invalid mutants. Mutations cover scheduler priority,
 scoreboard epoch ownership, FIFO ordering/capacity, multiplier data, stale-epoch
 writeback, divergent masks, stack overflow, and early `done`.
 
+Memory verification adds a six-cycle bounded bank-engine proof and expands the
+mutation result to 13/13 detected with no survivors or invalid mutants. The new
+cases cover inactive-lane validation, fault prevalidation, bank selection, and
+same-warp tracker exclusivity. Licensed memory differential runtime and its
+coverage closure remain open.
+
 Initial functional coverage includes opcode, resident warp count, selected warp,
 completion source, dependency type, predicate mode, active-mask class, branch
 outcome, divergence depth, queue occupancy, multiplier occupancy, epoch

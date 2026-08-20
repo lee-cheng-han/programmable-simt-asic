@@ -14,7 +14,7 @@ checkable architectural behavior.
 ```text
 Release stage:  Memory-system integration and verification
 Completed:      Core; reconvergence; SRAM-backed frontend; four-warp reference traces
-Verified:       21-run XSim differential matrix, 43/43 risk bins, three formal proofs, and 9/9 mutation detection
+Verified:       21-run XSim differential matrix, 43/43 risk bins, four formal targets, and 13/13 mutation detection
 In progress:    Memory-system RTL and verification
 Current:        Banked scratchpad/shared memory, four trackers, replay, barriers, and memory completion
 Next:           Memory differential coverage, SRAM wrappers, and verification closure
