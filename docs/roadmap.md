@@ -14,7 +14,7 @@ memory contracts freeze.
 | 1 | Processor architecture foundation | Complete: consolidated core, four-warp execution, nested reconvergence, fatal bounds, emulator trace agreement, and provisional IHP SRAM views pass | Preserve the single authoritative core and selected macro contract |
 | 2 | Frontend and model stabilization | Complete: SRAM-backed fetch, randomized response backpressure, lifecycle cancellation, mapped synthesis, and integrated legal placement | Preserve as a regression gate during memory integration |
 | 3 | Pre-memory verification | Complete: 21-run differential matrix, 43/43 approved risk bins, three formal proofs, and 9/9 mutations detected | Preserve closure while extending coverage for memory behavior |
-| 4 | Memory-system integration | In progress: banked memories, trackers, completion, barriers, directed reduction, and model support pass | Close differential, random, formal, mutation, macro-wrapper, and coverage evidence |
+| 4 | Memory-system integration | Complete: banked memories, trackers, barriers, SRAM wrappers, ten-run licensed differential matrix, formal/mutation evidence, and 51/51 coverage pass | Preserve closure throughout ASIC implementation |
 
 Performance counters remain limited to measurements needed for current claims.
 Extended counters and bounded debug snapshots stay in the standalone-core
@@ -290,14 +290,20 @@ general and shared spaces, selectable conflict-free or all-lanes-bank-zero
 address patterns, randomized completion/writeback backpressure, automatic
 instruction-count checking, and model trace comparison. Functional coverage
 tracks all four memory opcodes plus load/store and general/shared classification.
-The test passes XSim compilation and elaboration; simulation remains blocked on
-this host when the XSim runtime cannot check out its license.
+The licensed XSim 2026.1 release matrix passes both memory tests at seeds 1
+through 5 with zero UVM errors and model-matched architectural traces.
 
 The bank engine now has a passing six-cycle bounded safety proof for readiness,
 pending-mask consistency, atomic fault response, and stalled-response stability.
 The deterministic mutation suite detects 13/13 injected defects with no
 survivors or invalid mutants, including inactive-lane validation, skipped fault
 prevalidation, wrong bank selection, and duplicate same-warp tracker allocation.
+
+Pairwise fatal-source verification covers all fifteen ordered source pairs plus
+reset/fault, clear/fault, sticky first-cause preservation, and fatal/writeback
+suppression. The ten-run licensed memory matrix passes and portable manifests
+merge to 51/51 approved bins (100%). Reproduction commands and release evidence
+are recorded in `docs/memory_verification_closure.md`.
 
 Close fault atomicity across load/store, both spaces, every invalid-lane
 position, inactive invalid lanes, multiple invalid lanes, conflicts, stalled

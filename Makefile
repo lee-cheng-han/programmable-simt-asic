@@ -4,7 +4,7 @@ CXXFLAGS ?= -std=c++17 -Wall -Wextra -Wpedantic -Werror -O2
 BUILD := build
 PROGRAM ?= tb/programs/arithmetic.s
 
-.PHONY: all test python-test emulator-test rtl-test uvm-compile uvm-differential uvm-regression coverage-report formal mutation-smoke sram-check sram-adapter-check trial-floorplan integrated-floorplan synth-elab synth synth-mapped assemble disassemble xsim-smoke clean
+.PHONY: all test python-test emulator-test rtl-test docs-check uvm-compile uvm-differential uvm-regression coverage-report coverage-closure formal mutation-smoke sram-check sram-adapter-check trial-floorplan integrated-floorplan synth-elab synth synth-mapped assemble disassemble xsim-smoke clean
 all: $(BUILD)/simt-emulator
 
 $(BUILD):
@@ -27,6 +27,9 @@ test: python-test emulator-test rtl-test
 rtl-test:
 	scripts/run_rtl_unit_tests.sh
 
+docs-check:
+	$(PYTHON) scripts/check_documentation.py
+
 uvm-compile: $(BUILD)/simt-emulator
 	UVM_ELAB_ONLY=1 scripts/run_uvm_differential.sh
 
@@ -38,6 +41,9 @@ uvm-regression: $(BUILD)/simt-emulator
 
 coverage-report:
 	$(PYTHON) scripts/merge_portable_coverage.py
+
+coverage-closure:
+	REQUIRE_COVERAGE_CLOSURE=1 $(PYTHON) scripts/merge_portable_coverage.py
 
 formal:
 	scripts/run_bounded_formal.sh

@@ -2,6 +2,7 @@
 """Merge simulator-independent architectural coverage manifests."""
 
 from pathlib import Path
+import os
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNS = ROOT / "build" / "uvm" / "runs"
@@ -52,3 +53,5 @@ lines.extend(("", f"Aggregate risk-bin coverage: {total_hit}/{total_bins} "
 REPORT.write_text("\n".join(lines) + "\n", encoding="utf-8")
 print(f"portable coverage {total_hit}/{total_bins} ({overall:.1f}%)")
 print(f"report: {REPORT}")
+if os.environ.get("REQUIRE_COVERAGE_CLOSURE") == "1" and total_hit != total_bins:
+    raise SystemExit(f"coverage closure failed: {total_hit}/{total_bins} bins hit")

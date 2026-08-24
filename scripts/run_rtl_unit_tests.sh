@@ -145,6 +145,13 @@ verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
   tb/unit/tb_completion_arbiter.sv
 build/verilator/completion_arbiter/Vtb_completion_arbiter
 
+mkdir -p build/verilator/fatal_fault_controller
+verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
+  --Mdir build/verilator/fatal_fault_controller --top-module tb_fatal_fault_controller \
+  rtl/simt_gpu_pkg.sv rtl/control/fatal_fault_controller.sv \
+  tb/unit/tb_fatal_fault_controller.sv
+build/verilator/fatal_fault_controller/Vtb_fatal_fault_controller
+
 mkdir -p build/verilator/single_warp_core
 verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
   --Mdir build/verilator/single_warp_core --top-module tb_single_warp_core \

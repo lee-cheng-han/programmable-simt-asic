@@ -12,18 +12,20 @@ checkable architectural behavior.
 ## Current status
 
 ```text
-Release stage:  Memory-system integration and verification
-Completed:      Core; reconvergence; SRAM-backed frontend; four-warp reference traces
-Verified:       21-run XSim differential matrix, 43/43 risk bins, four formal targets, and 13/13 mutation detection
-In progress:    Memory-system RTL and verification
-Current:        Banked scratchpad/shared memory, four trackers, replay, barriers, and memory completion
-Next:           Memory differential coverage, macro-boundary timing, and verification closure
-Not started:    Qualified data-SRAM integration, DFT, physical implementation, FPGA shell
+Release stage:  ASIC implementation readiness
+Completed:      Core; reconvergence; SRAM-backed frontend/data banks; memory verification closure
+Verified:       31-run XSim differential matrix, 51/51 approved bins, four formal targets, and 13/13 mutation detection
+In progress:    DFT architecture, scan-ready constraints, and routed ASIC implementation preparation
+Current:        17-macro mapped ASIC netlist and legally placed integrated trial
+Next:           Close DFT and advance the balanced ASIC configuration through routed physical design
+Not started:    Routed physical implementation, FPGA shell
 ```
 
 The authoritative contract is [docs/architecture.md](docs/architecture.md).
 [Pre-memory closure evidence](docs/pre_memory_closure.md) records the passing
 regression, coverage, formal, mutation, synthesis, and placement gates.
+[Memory verification closure](docs/memory_verification_closure.md) records the
+passing ten-run licensed regression and 51/51 coverage release gate.
 [Measured warp-interleaving results](docs/performance_results.md) report the
 checked-in one-warp versus four-warp arithmetic baseline.
 Supporting documents explain individual topics but cannot override it.
