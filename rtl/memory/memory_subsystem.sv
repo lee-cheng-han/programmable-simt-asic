@@ -1,4 +1,4 @@
-module memory_subsystem (
+module memory_subsystem #(parameter bit USE_IHP_DATA_SRAM=1'b0)(
   input logic clk,input logic rst,input logic clear_i,input logic fatal_i,
   input logic request_valid_i,output logic request_ready_o,
   input logic request_shared_i,input logic request_store_i,
@@ -75,7 +75,8 @@ module memory_subsystem (
     end
   end
 
-  banked_vector_memory #(.MEMORY_BYTES(SCRATCHPAD_BYTES)) general_u(
+  banked_vector_memory #(.MEMORY_BYTES(SCRATCHPAD_BYTES),
+    .USE_IHP_MACRO(USE_IHP_DATA_SRAM)) general_u(
     .clk,.rst,.clear_i(clear_i||fatal_i),.request_valid_i(general_dispatch),
     .request_ready_o(general_req_ready),.request_store_i(store_q[general_index]),
     .request_mask_i(mask_q[general_index]),.request_address_i(address_q[general_index]),
@@ -84,7 +85,8 @@ module memory_subsystem (
     .response_misaligned_o(general_misaligned),.response_out_of_range_o(general_range),
     .response_mask_o(general_resp_mask),.response_load_data_o(general_load),
     .pending_mask_o(general_pending),.busy_o(general_busy));
-  banked_vector_memory #(.MEMORY_BYTES(SHMEM_BYTES)) shared_u(
+  banked_vector_memory #(.MEMORY_BYTES(SHMEM_BYTES),
+    .USE_IHP_MACRO(USE_IHP_DATA_SRAM)) shared_u(
     .clk,.rst,.clear_i(clear_i||fatal_i),.request_valid_i(shared_dispatch),
     .request_ready_o(shared_req_ready),.request_store_i(store_q[shared_index]),
     .request_mask_i(mask_q[shared_index]),.request_address_i(address_q[shared_index]),

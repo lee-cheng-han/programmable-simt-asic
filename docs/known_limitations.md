@@ -19,12 +19,14 @@ warp. Its storage array remains behavioral until the selected macro adapter is
 integrated. IHP SG13G2 SRAM physical, simulation, and three-corner timing views
 are machine-checked, and a macro-only trial floorplan passes; integrated mapped
 timing, PDN, and routing are not yet evidence. The RTL now has 4 KiB general and
-2 KiB shared eight-bank behavioral arrays, four memory trackers, bank replay,
+2 KiB shared eight-bank memories behind behavioral/IHP-selectable adapters, four memory trackers, bank replay,
 broadcast loads, full-warp barriers, and a passing four-warp shared reduction.
 Missing-warp barriers raise a parameterized architectural deadlock fault in RTL
 and the multi-warp model; host configuration and snapshot visibility are pending.
-Qualified data-SRAM wrappers, Wishbone, DFT, and physical implementation are not
-yet integrated. A six-cycle bounded bank-engine safety proof now passes; broader
+The qualified data-SRAM bank adapter is implemented, equivalence-tested, and
+integrated into all sixteen vector banks. Mapped synthesis retains all 17 SRAM
+macros and trial placement is legal. Wishbone, DFT, routed timing, PDN, and
+signoff are not yet integrated. A six-cycle bounded bank-engine safety proof now passes; broader
 tracker, ordering, and liveness proofs remain open.
 
 The current performance numbers are RTL cycle measurements for a small arithmetic

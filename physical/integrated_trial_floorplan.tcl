@@ -11,10 +11,18 @@ link_design simt_integrated_trial
 initialize_floorplan -die_area {0 0 3200 2500} -core_area {30 30 3170 2470} \
   -site CoreSite
 
-set macros [get_cells -hierarchical -filter "ref_name == RM_IHPSG13_1P_64x64_c2_bm_bist"]
+set macros {}
+set block [ord::get_db_block]
+foreach inst [$block getInsts] {
+  if {[[$inst getMaster] getName] eq "RM_IHPSG13_1P_64x64_c2_bm_bist"} {
+    lappend macros $inst
+  }
+}
+if {[llength $macros] != 17} {
+  error "expected 17 integrated SRAM macros, found [llength $macros]"
+}
 set index 0
 foreach macro $macros {
-  set name [get_full_name $macro]
   if {$index < 9} {
     set x 45
     set y [expr {45 + 120 * $index}]
@@ -22,7 +30,7 @@ foreach macro $macros {
     set x 2370
     set y [expr {45 + 120 * ($index - 9)}]
   }
-  place_macro -macro_name $name -location [list $x $y] -orientation R0 -exact
+  mpl::place_macro $macro $x $y R0 true false
   incr index
 }
 

@@ -37,6 +37,15 @@ power-pin contract.
   permit both clocks to operate the array concurrently.
 - The baseline has no cache, coherence, virtual addressing, or multiported SRAM.
 
+`rtl/memory/data_sram_bank_adapter.sv` implements this contract. Its 128-word
+mode packs adjacent logical words into the low/high halves used by a general
+scratchpad bank; `LOW_HALF_ONLY` maps a 64-word shared-memory bank directly to
+the low half of all 64 macro rows. Both modes provide four byte enables,
+one-cycle synchronous reads with stable backpressured responses, and exclusive
+functional/BIST ownership. Clear resets interface state but deliberately does
+not clear SRAM contents. The unit regression compares the behavioral 128-word
+implementation against a pin-accurate functional model of the selected macro.
+
 The 64 × 64 macro outline is 784.48 µm × 64.36 µm. Seventeen baseline instances
 therefore contribute approximately 0.859 mm² of raw macro area before halos,
 routing channels, logic, and harness overhead. This makes macro placement and
@@ -47,9 +56,10 @@ floorplan rather than a later implementation detail.
 typical Liberty views and places all 17 macros in a 1.70 mm × 0.80 mm die trial.
 The generated OpenDB report measures 0.8583 mm² of macro area, 1.2548 mm² of core
 area, and 68.4% macro-only utilization with legal nonoverlapping placement.
-The macro-only trial establishes the minimum geometry. A separate integrated
-trial maps the complete core into IHP standard cells, instantiates the instruction
-macro plus 16 memory placeholders, and legally places 142,698 movable cells and
-17 fixed macros in a 3.20 mm × 2.50 mm outline. The placed instance area is
-3.398845 mm² at 44.4% utilization, with zero detailed-placement failures. This is
-placement feasibility, not routed timing, PDN, clock-tree, DRC, or signoff closure.
+The macro-only trial establishes the minimum geometry. The integrated mapped
+netlist retains the instruction macro plus all 16 real data-bank instances and
+contains 183,869 total cells. A separate integrated trial legally places 183,852
+movable standard cells and 17 fixed macros in a 3.20 mm × 2.50 mm outline. The
+placed instance area is 4.0887 mm² at 53.4% utilization, with zero detailed-
+placement failures. This is placement feasibility, not routed timing, PDN,
+clock-tree, DRC, or signoff closure.

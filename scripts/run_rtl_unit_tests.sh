@@ -44,15 +44,22 @@ mkdir -p build/verilator/banked_vector_memory
 verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
   --Mdir build/verilator/banked_vector_memory \
   --top-module tb_banked_vector_memory \
-  rtl/simt_gpu_pkg.sv rtl/memory/banked_vector_memory.sv \
+  rtl/simt_gpu_pkg.sv rtl/memory/data_sram_bank_adapter.sv rtl/memory/banked_vector_memory.sv \
   tb/unit/tb_banked_vector_memory.sv
 build/verilator/banked_vector_memory/Vtb_banked_vector_memory
+
+mkdir -p build/verilator/data_sram_bank_adapter
+verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
+  --Mdir build/verilator/data_sram_bank_adapter --top-module tb_data_sram_bank_adapter \
+  rtl/memory/data_sram_bank_adapter.sv tb/unit/ihp_sram_functional_model.sv \
+  tb/unit/tb_data_sram_bank_adapter.sv
+build/verilator/data_sram_bank_adapter/Vtb_data_sram_bank_adapter
 
 mkdir -p build/verilator/memory_subsystem
 verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
   --Mdir build/verilator/memory_subsystem --top-module tb_memory_subsystem \
   rtl/simt_gpu_pkg.sv rtl/execute/completion_queue.sv \
-  rtl/memory/banked_vector_memory.sv rtl/memory/memory_subsystem.sv \
+  rtl/memory/data_sram_bank_adapter.sv rtl/memory/banked_vector_memory.sv rtl/memory/memory_subsystem.sv \
   tb/unit/tb_memory_subsystem.sv
 build/verilator/memory_subsystem/Vtb_memory_subsystem
 
@@ -152,7 +159,7 @@ verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
   rtl/execute/architectural_writeback.sv \
   rtl/control/dependency_scoreboard.sv rtl/control/round_robin_arbiter.sv \
   rtl/control/fatal_fault_controller.sv \
-  rtl/memory/banked_vector_memory.sv rtl/memory/memory_subsystem.sv \
+  rtl/memory/data_sram_bank_adapter.sv rtl/memory/banked_vector_memory.sv rtl/memory/memory_subsystem.sv \
   rtl/frontend/instruction_sram_adapter.sv rtl/frontend/warp_instruction_frontend.sv \
   rtl/core/simt_core.sv \
   tb/integration/tb_single_warp_core.sv
@@ -176,7 +183,7 @@ verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
   rtl/execute/completion_arbiter.sv rtl/execute/architectural_writeback.sv \
   rtl/control/dependency_scoreboard.sv rtl/control/round_robin_arbiter.sv \
   rtl/control/fatal_fault_controller.sv \
-  rtl/memory/banked_vector_memory.sv rtl/memory/memory_subsystem.sv \
+  rtl/memory/data_sram_bank_adapter.sv rtl/memory/banked_vector_memory.sv rtl/memory/memory_subsystem.sv \
   rtl/frontend/instruction_sram_adapter.sv rtl/frontend/warp_instruction_frontend.sv \
   rtl/core/simt_core.sv tb/integration/tb_single_warp_lifecycle.sv
 build/verilator/single_warp_lifecycle/Vtb_single_warp_lifecycle
@@ -191,7 +198,7 @@ verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
   rtl/execute/alu_completion_stage.sv rtl/execute/vector_multiplier_pipeline.sv \
   rtl/control/round_robin_arbiter.sv rtl/execute/completion_arbiter.sv \
   rtl/execute/architectural_writeback.sv rtl/control/dependency_scoreboard.sv \
-  rtl/control/fatal_fault_controller.sv rtl/memory/banked_vector_memory.sv \
+  rtl/control/fatal_fault_controller.sv rtl/memory/data_sram_bank_adapter.sv rtl/memory/banked_vector_memory.sv \
   rtl/memory/memory_subsystem.sv rtl/frontend/instruction_sram_adapter.sv \
   rtl/frontend/warp_instruction_frontend.sv rtl/core/simt_core.sv \
   tb/integration/tb_single_warp_memory.sv
@@ -207,7 +214,7 @@ verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
   rtl/execute/vector_multiplier_pipeline.sv rtl/control/round_robin_arbiter.sv \
   rtl/execute/completion_arbiter.sv rtl/execute/architectural_writeback.sv \
   rtl/control/dependency_scoreboard.sv rtl/control/fatal_fault_controller.sv \
-  rtl/memory/banked_vector_memory.sv rtl/memory/memory_subsystem.sv \
+  rtl/memory/data_sram_bank_adapter.sv rtl/memory/banked_vector_memory.sv rtl/memory/memory_subsystem.sv \
   rtl/frontend/instruction_sram_adapter.sv rtl/frontend/warp_instruction_frontend.sv \
   rtl/core/simt_core.sv tb/integration/tb_four_warp_barrier.sv
 build/verilator/four_warp_barrier/Vtb_four_warp_barrier
@@ -222,7 +229,7 @@ verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
   rtl/execute/vector_multiplier_pipeline.sv rtl/control/round_robin_arbiter.sv \
   rtl/execute/completion_arbiter.sv rtl/execute/architectural_writeback.sv \
   rtl/control/dependency_scoreboard.sv rtl/control/fatal_fault_controller.sv \
-  rtl/memory/banked_vector_memory.sv rtl/memory/memory_subsystem.sv \
+  rtl/memory/data_sram_bank_adapter.sv rtl/memory/banked_vector_memory.sv rtl/memory/memory_subsystem.sv \
   rtl/frontend/instruction_sram_adapter.sv rtl/frontend/warp_instruction_frontend.sv \
   rtl/core/simt_core.sv tb/integration/tb_shared_reduction.sv
 build/verilator/shared_reduction/Vtb_shared_reduction
@@ -237,7 +244,7 @@ verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
   rtl/execute/vector_multiplier_pipeline.sv rtl/control/round_robin_arbiter.sv \
   rtl/execute/completion_arbiter.sv rtl/execute/architectural_writeback.sv \
   rtl/control/dependency_scoreboard.sv rtl/control/fatal_fault_controller.sv \
-  rtl/memory/banked_vector_memory.sv rtl/memory/memory_subsystem.sv \
+  rtl/memory/data_sram_bank_adapter.sv rtl/memory/banked_vector_memory.sv rtl/memory/memory_subsystem.sv \
   rtl/frontend/instruction_sram_adapter.sv rtl/frontend/warp_instruction_frontend.sv \
   rtl/core/simt_core.sv tb/integration/tb_barrier_deadlock_watchdog.sv
 build/verilator/barrier_deadlock_watchdog/Vtb_barrier_deadlock_watchdog
@@ -253,7 +260,7 @@ verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
   rtl/control/round_robin_arbiter.sv rtl/execute/completion_arbiter.sv \
   rtl/execute/architectural_writeback.sv \
   rtl/control/dependency_scoreboard.sv rtl/control/fatal_fault_controller.sv \
-  rtl/memory/banked_vector_memory.sv rtl/memory/memory_subsystem.sv \
+  rtl/memory/data_sram_bank_adapter.sv rtl/memory/banked_vector_memory.sv rtl/memory/memory_subsystem.sv \
   rtl/frontend/instruction_sram_adapter.sv rtl/frontend/warp_instruction_frontend.sv \
   rtl/core/simt_core.sv tb/integration/tb_four_warp_core.sv
 build/verilator/four_warp_core/Vtb_four_warp_core
@@ -277,7 +284,7 @@ verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
   rtl/control/round_robin_arbiter.sv rtl/execute/completion_arbiter.sv \
   rtl/execute/architectural_writeback.sv \
   rtl/control/dependency_scoreboard.sv rtl/control/fatal_fault_controller.sv \
-  rtl/memory/banked_vector_memory.sv rtl/memory/memory_subsystem.sv \
+  rtl/memory/data_sram_bank_adapter.sv rtl/memory/banked_vector_memory.sv rtl/memory/memory_subsystem.sv \
   rtl/frontend/instruction_sram_adapter.sv rtl/frontend/warp_instruction_frontend.sv \
   rtl/core/simt_core.sv tb/integration/tb_four_warp_divergence.sv
 build/verilator/four_warp_divergence/Vtb_four_warp_divergence

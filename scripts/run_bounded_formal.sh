@@ -53,4 +53,4 @@ run_slang_comb_proof architectural_writeback_safety \
   architectural_writeback_formal \
   'rtl/simt_gpu_pkg.sv rtl/execute/architectural_writeback.sv formal/architectural_writeback_formal.sv'
 run_slang_seq_proof banked_vector_memory_safety banked_vector_memory_formal \
-  'rtl/simt_gpu_pkg.sv rtl/memory/banked_vector_memory.sv formal/banked_vector_memory_formal.sv' 6
+  'rtl/simt_gpu_pkg.sv rtl/memory/data_sram_bank_adapter.sv rtl/memory/banked_vector_memory.sv formal/banked_vector_memory_formal.sv' 6

@@ -17,7 +17,7 @@ Completed:      Core; reconvergence; SRAM-backed frontend; four-warp reference t
 Verified:       21-run XSim differential matrix, 43/43 risk bins, four formal targets, and 13/13 mutation detection
 In progress:    Memory-system RTL and verification
 Current:        Banked scratchpad/shared memory, four trackers, replay, barriers, and memory completion
-Next:           Memory differential coverage, SRAM wrappers, and verification closure
+Next:           Memory differential coverage, macro-boundary timing, and verification closure
 Not started:    Qualified data-SRAM integration, DFT, physical implementation, FPGA shell
 ```
 
@@ -77,6 +77,7 @@ make uvm-regression UVM_SEEDS="1 2 3 4 5"
 make coverage-report
 make formal
 make mutation-smoke
+make sram-check sram-adapter-check
 make synth-elab
 make synth
 make synth-mapped

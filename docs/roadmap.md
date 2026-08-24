@@ -333,6 +333,17 @@ collection if macro timing or congestion requires it. Exit requires automated
 view checks, wrapper equivalence tests, synthesis inference evidence, preliminary
 bank placement, and timing across every macro boundary.
 
+Current progress: the portable logical-bank adapter supports the selected
+64×64 IHP macro, the general-memory packed-half mapping, shared-memory low-half
+mapping, byte masks, synchronous read response/backpressure, and exclusive BIST
+ownership. Behavioral-versus-macro functional equivalence passes for full-word,
+partial-byte, adjacent-half, stalled-response, and ownership cases. All sixteen
+data adapters are integrated into the vector bank engines. Mapped synthesis
+retains exactly 17 selected SRAM macros and reports 183,869 cells with about
+3.23 mm² standard-cell area; the 3.20 mm × 2.50 mm trial legally places 183,852
+movable cells and all 17 real macros at 53.4% utilization with zero placement
+failures. Routed macro-boundary timing remains part of physical-design closure.
+
 ## Standalone verification release
 
 This group turns the integrated processor into a reproducible, quantitatively

@@ -4,7 +4,7 @@ CXXFLAGS ?= -std=c++17 -Wall -Wextra -Wpedantic -Werror -O2
 BUILD := build
 PROGRAM ?= tb/programs/arithmetic.s
 
-.PHONY: all test python-test emulator-test rtl-test uvm-compile uvm-differential uvm-regression coverage-report formal mutation-smoke sram-check trial-floorplan integrated-floorplan synth-elab synth synth-mapped assemble disassemble xsim-smoke clean
+.PHONY: all test python-test emulator-test rtl-test uvm-compile uvm-differential uvm-regression coverage-report formal mutation-smoke sram-check sram-adapter-check trial-floorplan integrated-floorplan synth-elab synth synth-mapped assemble disassemble xsim-smoke clean
 all: $(BUILD)/simt-emulator
 
 $(BUILD):
@@ -47,6 +47,9 @@ mutation-smoke:
 
 sram-check:
 	scripts/check_sram_views.sh
+
+sram-adapter-check:
+	scripts/check_data_sram_adapter.sh
 
 trial-floorplan:
 	scripts/run_trial_floorplan.sh

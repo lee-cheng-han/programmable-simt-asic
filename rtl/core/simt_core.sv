@@ -2,6 +2,7 @@ module simt_core #(
   parameter int unsigned IMEM_WORDS = 64,
   parameter int unsigned IMEM_ADDR_W = $clog2(IMEM_WORDS),
   parameter bit USE_IHP_IMEM = 1'b0,
+  parameter bit USE_IHP_DATA_SRAM = 1'b0,
   parameter int unsigned BARRIER_TIMEOUT_CYCLES = 256
 ) (
   input  logic clk,
@@ -343,7 +344,7 @@ module simt_core #(
     .completion_o(mul_completion), .queue_occupancy_o(mul_occupancy),
     .stage_valid_o(mul_stage_valid));
 
-  memory_subsystem memory_u(
+  memory_subsystem #(.USE_IHP_DATA_SRAM(USE_IHP_DATA_SRAM)) memory_u(
     .clk,.rst,.clear_i,.fatal_i(fatal_now),
     .request_valid_i(issue_fire&&selected_is_memory),
     .request_ready_o(memory_request_ready),.request_shared_i(selected_is_shared),
