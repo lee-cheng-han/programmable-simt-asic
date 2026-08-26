@@ -1,3 +1,4 @@
+/* verilator lint_off DECLFILENAME */
 (* blackbox *)
 module RM_IHPSG13_1P_64x64_c2_bm_bist (
   input logic A_CLK, A_MEN, A_WEN, A_REN,
@@ -11,3 +12,4 @@ module RM_IHPSG13_1P_64x64_c2_bm_bist (
   input logic [63:0] A_BIST_DIN, A_BIST_BM
 );
 endmodule
+/* verilator lint_on DECLFILENAME */

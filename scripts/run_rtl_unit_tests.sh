@@ -82,6 +82,21 @@ verilator --binary --timing --assert --Wall \
   tb/unit/tb_warp_instruction_frontend.sv
 build/verilator/warp_instruction_frontend/Vtb_warp_instruction_frontend
 
+mkdir -p build/verilator/asic_host_controller
+verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
+  --Mdir build/verilator/asic_host_controller \
+  --top-module tb_asic_host_controller \
+  build/simt_isa_pkg.sv rtl/simt_gpu_pkg.sv \
+  rtl/asic/asic_host_controller.sv tb/unit/tb_asic_host_controller.sv
+build/verilator/asic_host_controller/Vtb_asic_host_controller
+
+mkdir -p build/verilator/reset_synchronizer
+verilator --binary --timing --assert --Wall \
+  --Mdir build/verilator/reset_synchronizer \
+  --top-module tb_reset_synchronizer \
+  rtl/asic/reset_synchronizer.sv tb/unit/tb_reset_synchronizer.sv
+build/verilator/reset_synchronizer/Vtb_reset_synchronizer
+
 mkdir -p build/verilator/writeback_unit
 verilator --binary --timing --assert --Wall \
   --Mdir build/verilator/writeback_unit \

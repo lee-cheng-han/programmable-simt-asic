@@ -17,6 +17,7 @@ module tb_warp_instruction_frontend;
   logic [3:0] request_addr;
   /* verilator lint_on UNUSEDSIGNAL */
   int unsigned checks;
+  int unsigned response_cycles;
 
   /* verilator lint_off BLKSEQ */
   always #5 clk = ~clk;
@@ -88,9 +89,11 @@ module tb_warp_instruction_frontend;
     warp_active = '1;
     fork
       begin
-        repeat (16) begin
+        response_cycles = 0;
+        while (response_cycles < 16) begin
           @(negedge clk);
           response_ready = ($urandom_range(0,2) != 0);
+          response_cycles++;
         end
         response_ready = 1'b1;
       end

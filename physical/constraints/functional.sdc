@@ -1,0 +1,6 @@
+create_clock -name core_clk -period 10.000 [get_ports clk_i]
+set_input_delay 2.000 -clock core_clk [get_ports {wb_cyc_i wb_stb_i wb_we_i wb_adr_i[*] wb_dat_i[*] wb_sel_i[*]}]
+set_output_delay 2.000 -clock core_clk [get_ports {wb_ack_o wb_err_o wb_dat_o[*] running_o done_o fault_o}]
+set_false_path -from [get_ports reset_n_i]
+set_case_analysis 0 [get_ports test_mode_i]
+set_case_analysis 0 [get_ports scan_enable_i]

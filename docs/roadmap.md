@@ -442,6 +442,13 @@ physical hierarchy, and the selected MPW harness contract. Exit requires qualifi
 SRAM views, preliminary macro placement and boundary timing, and no unresolved
 architectural dependency on an assumed memory implementation.
 
+Current result: the ASIC boundary now freezes the Wishbone host map, two-stage
+reset release, functional/test ownership, scan stitch anchors, functional and
+scan-shift SDCs, and a single-domain UPF contract. The mapped core retains 17
+qualified SRAM macros and passes integrated trial placement. The reproducible
+contract and directed evidence are in `docs/asic_interface_freeze.md`; this
+architecture-freeze gate is complete.
+
 ### Static RTL signoff
 
 Close RTL lint, clock-domain crossings, reset-domain crossings, reset assertion
@@ -454,6 +461,12 @@ Add RTL-to-synthesis-netlist equivalence and rerun equivalence after scan,
 clock-gating, SRAM-wrapper substitution, and every functional ECO. Synchronize
 reset deassertion and prove unsafe release cycles cannot issue, commit, write an
 SRAM, or respond to the host.
+
+The integrated ASIC top and host controller pass strict Verilator lint. Directed
+tests cover host backpressure/control semantics, invalid accesses, test-mode
+ownership, and asynchronous reset assertion with synchronous release. Dedicated
+CDC/RDC-tool reports and post-synthesis equivalence remain required before the
+static-signoff gate can close.
 
 ### Host and SRAM integration
 

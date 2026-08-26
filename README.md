@@ -13,11 +13,11 @@ checkable architectural behavior.
 
 ```text
 Release stage:  ASIC implementation readiness
-Completed:      Core; reconvergence; SRAM-backed frontend/data banks; memory verification closure
+Completed:      Core; memory verification closure; ASIC host/reset/mode interface freeze
 Verified:       31-run XSim differential matrix, 51/51 approved bins, four formal targets, and 13/13 mutation detection
-In progress:    DFT architecture, scan-ready constraints, and routed ASIC implementation preparation
+In progress:    Scan insertion, SRAM BIST, ATPG, and routed ASIC implementation preparation
 Current:        17-macro mapped ASIC netlist and legally placed integrated trial
-Next:           Close DFT and advance the balanced ASIC configuration through routed physical design
+Next:           Close tool-inserted DFT and advance the balanced ASIC configuration through routed physical design
 Not started:    Routed physical implementation, FPGA shell
 ```
 
@@ -26,6 +26,8 @@ The authoritative contract is [docs/architecture.md](docs/architecture.md).
 regression, coverage, formal, mutation, synthesis, and placement gates.
 [Memory verification closure](docs/memory_verification_closure.md) records the
 passing ten-run licensed regression and 51/51 coverage release gate.
+[ASIC interface freeze](docs/asic_interface_freeze.md) records the Wishbone map,
+reset release, test ownership, scan anchors, mode constraints, and power contract.
 [Measured warp-interleaving results](docs/performance_results.md) report the
 checked-in one-warp versus four-warp arithmetic baseline.
 Supporting documents explain individual topics but cannot override it.
@@ -105,11 +107,13 @@ model/                  C++17 architectural emulator and tests
 rtl/frontend/           Instruction memory, fetch, decoder
 rtl/register_file/      Replicated GPR file and predicate file
 rtl/execute/            Integer lanes, vector ALU, preliminary writeback
+rtl/asic/               Wishbone host control, reset synchronization, ASIC top
 tb/unit/                Self-checking component tests
 tb/uvm/                 UVM core agent, environment, scoreboard, and test
 tb/programs/            Directed assembly programs and memory images
 docs/                   Normative architecture and verification contracts
 scripts/                Reproducible regression entry points
+physical/constraints/   Functional and scan-shift timing modes
 ```
 
 ## Scope boundaries

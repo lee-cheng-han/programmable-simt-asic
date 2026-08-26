@@ -8,5 +8,6 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y verilator
       - run: make test
       - run: make docs-check
+      - run: make asic-contract asic-lint
       - run: make mutation-smoke
       - run: git diff --check

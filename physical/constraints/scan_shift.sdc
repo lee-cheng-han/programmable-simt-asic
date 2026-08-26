@@ -1,0 +1,6 @@
+create_clock -name scan_clk -period 100.000 [get_ports clk_i]
+set_case_analysis 1 [get_ports test_mode_i]
+set_case_analysis 1 [get_ports scan_enable_i]
+set_false_path -from [get_ports reset_n_i]
+set_input_delay 20.000 -clock scan_clk [get_ports scan_in_i]
+set_output_delay 20.000 -clock scan_clk [get_ports scan_out_o]

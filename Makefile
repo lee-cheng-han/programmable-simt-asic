@@ -4,7 +4,7 @@ CXXFLAGS ?= -std=c++17 -Wall -Wextra -Wpedantic -Werror -O2
 BUILD := build
 PROGRAM ?= tb/programs/arithmetic.s
 
-.PHONY: all test python-test emulator-test rtl-test docs-check uvm-compile uvm-differential uvm-regression coverage-report coverage-closure formal mutation-smoke sram-check sram-adapter-check trial-floorplan integrated-floorplan synth-elab synth synth-mapped assemble disassemble xsim-smoke clean
+.PHONY: all test python-test emulator-test rtl-test docs-check asic-lint asic-contract uvm-compile uvm-differential uvm-regression coverage-report coverage-closure formal mutation-smoke sram-check sram-adapter-check trial-floorplan integrated-floorplan synth-elab synth synth-mapped assemble disassemble xsim-smoke clean
 all: $(BUILD)/simt-emulator
 
 $(BUILD):
@@ -29,6 +29,12 @@ rtl-test:
 
 docs-check:
 	$(PYTHON) scripts/check_documentation.py
+
+asic-lint:
+	scripts/run_asic_lint.sh
+
+asic-contract:
+	$(PYTHON) scripts/check_asic_contract.py
 
 uvm-compile: $(BUILD)/simt-emulator
 	UVM_ELAB_ONLY=1 scripts/run_uvm_differential.sh

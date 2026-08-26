@@ -22,11 +22,14 @@ timing, PDN, and routing are not yet evidence. The RTL now has 4 KiB general and
 2 KiB shared eight-bank memories behind behavioral/IHP-selectable adapters, four memory trackers, bank replay,
 broadcast loads, full-warp barriers, and a passing four-warp shared reduction.
 Missing-warp barriers raise a parameterized architectural deadlock fault in RTL
-and the multi-warp model; host configuration and snapshot visibility are pending.
+and the multi-warp model; the ASIC Wishbone path now exposes launch/programming,
+status, fault, and counters, while the bounded debug snapshot remains pending.
 The qualified data-SRAM bank adapter is implemented, equivalence-tested, and
 integrated into all sixteen vector banks. Mapped synthesis retains all 17 SRAM
-macros and trial placement is legal. Wishbone, DFT, routed timing, PDN, and
-signoff are not yet integrated. A six-cycle bounded bank-engine safety proof now passes; broader
+macros and trial placement is legal. Wishbone control, synchronized reset, test
+ownership, scan anchors, functional/scan SDC, and a minimal UPF are integrated.
+Scan insertion/ATPG, SRAM BIST, routed timing, PDN, and signoff are not yet
+complete. A six-cycle bounded bank-engine safety proof now passes; broader
 tracker, ordering, and liveness proofs remain open.
 
 The current performance numbers are RTL cycle measurements for a small arithmetic
@@ -41,18 +44,11 @@ produce model-matched traces and retain portable per-seed coverage manifests. St
 shallow and nested control flow passes differential testing with one
 through four resident warps. A directed class-based test also verifies stack-
 underflow side-effect suppression, sticky-fault clear, and an epoch-1 four-warp
-recovery relaunch. The portable report covers all 43 approved pre-memory risk
-bins across opcode, warp, resident-warp count, completion source, mask class,
-and execution/writeback stall state. Three bounded/exhaustive component proofs
+recovery relaunch. The portable report covers all 51 approved risk bins across
+opcode, warp, resident-warp count, completion source, mask class,
+execution/writeback stalls, and memory opcode/kind/space. Four bounded/exhaustive component proofs
 pass, and the expanded mutation suite detects 13/13 injected defects with no
-survivors or invalid mutants. These results preserve the pre-memory gate and add
-initial memory-focused evidence. The new memory UVM
-test compiles and elaborates, but its latest XSim run was blocked before
-simulation by license checkout on this host, so memory differential and coverage
-closure remain open. DFT, routed timing, and signoff remain outside the current
-release boundary.
-
-The seeded constrained-random memory differential test is implemented and
-successfully compiles/elaborates under XSim 2026.1. Its latest attempted runtime
-was stopped during simulator initialization by license checkout, before any RTL
-cycle executed; therefore it is not counted as a passing differential seed.
+survivors or invalid mutants. Both memory differential tests pass seeds 1
+through 5 under XSim 2026.1 with model-matched traces and zero UVM errors;
+portable coverage is 51/51. Tool-inserted DFT, routed timing, and signoff remain
+outside the current release boundary.
