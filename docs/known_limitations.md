@@ -23,13 +23,17 @@ timing, PDN, and routing are not yet evidence. The RTL now has 4 KiB general and
 broadcast loads, full-warp barriers, and a passing four-warp shared reduction.
 Missing-warp barriers raise a parameterized architectural deadlock fault in RTL
 and the multi-warp model; the ASIC Wishbone path now exposes launch/programming,
-status, fault, and counters, while the bounded debug snapshot remains pending.
+status, fault, counters, watchdog control, breadcrumbs, and bounded debug snapshots.
 The qualified data-SRAM bank adapter is implemented, equivalence-tested, and
 integrated into all sixteen vector banks. Mapped synthesis retains all 17 SRAM
 macros and trial placement is legal. Wishbone control, synchronized reset, test
 ownership, scan anchors, functional/scan SDC, and a minimal UPF are integrated.
-Scan insertion/ATPG, SRAM BIST, routed timing, PDN, and signoff are not yet
-complete. A six-cycle bounded bank-engine safety proof now passes; broader
+The pre-DFT static RTL signoff gate is complete with strict lint, structural
+CDC/RDC review, reset-safety testing, and compositional integration equivalence.
+Quiescent host initialization/readback now arbitrates through both real bank
+engines, and the production manifest disables five verification-only injection
+hooks. Scan insertion/ATPG, SRAM BIST, routed timing, PDN, and final physical signoff
+are not yet complete. A six-cycle bounded bank-engine safety proof now passes; broader
 tracker, ordering, and liveness proofs remain open.
 
 The current performance numbers are RTL cycle measurements for a small arithmetic
@@ -51,4 +55,4 @@ pass, and the expanded mutation suite detects 13/13 injected defects with no
 survivors or invalid mutants. Both memory differential tests pass seeds 1
 through 5 under XSim 2026.1 with model-matched traces and zero UVM errors;
 portable coverage is 51/51. Tool-inserted DFT, routed timing, and signoff remain
-outside the current release boundary.
+outside the current release boundary; pre-DFT static RTL signoff is closed.

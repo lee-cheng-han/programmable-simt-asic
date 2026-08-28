@@ -3,7 +3,8 @@ module simt_core #(
   parameter int unsigned IMEM_ADDR_W = $clog2(IMEM_WORDS),
   parameter bit USE_IHP_IMEM = 1'b0,
   parameter bit USE_IHP_DATA_SRAM = 1'b0,
-  parameter int unsigned BARRIER_TIMEOUT_CYCLES = 256
+  parameter int unsigned BARRIER_TIMEOUT_CYCLES = 256,
+  parameter bit ENABLE_FAULT_INJECTION = 1'b0
 ) (
   input  logic clk,
   input  logic rst,
@@ -27,10 +28,31 @@ module simt_core #(
   output simt_gpu_pkg::completion_record_t commit_o,
   output logic [63:0] cycle_count_o,
   output logic [63:0] issue_count_o,
-  output logic [63:0] commit_count_o
+  output logic [63:0] commit_count_o,
+  input logic watchdog_enable_i,input logic [31:0] watchdog_limit_i,
+  input logic host_mem_valid_i,input logic host_mem_shared_i,input logic host_mem_write_i,
+  input logic [31:0] host_mem_address_i,input logic [31:0] host_mem_write_data_i,
+  output logic host_mem_ready_o,output logic host_mem_response_valid_o,
+  output logic host_mem_response_fault_o,output logic [31:0] host_mem_read_data_o,
+  input logic [4:0] inject_fault_i,
+  output logic [simt_gpu_pkg::WARPS-1:0][31:0] debug_warp_pc_o,
+  output simt_gpu_pkg::lane_mask_t debug_active_mask_o [simt_gpu_pkg::WARPS],
+  output logic [simt_gpu_pkg::WARPS-1:0][simt_gpu_pkg::REGS_PER_THREAD-1:0] debug_gpr_pending_o,
+  output logic [simt_gpu_pkg::WARPS-1:0][simt_gpu_pkg::PREDS_PER_THREAD-1:0] debug_pred_pending_o,
+  output logic [simt_gpu_pkg::WARPS-1:0][3:0] debug_stack_depth_o,
+  output logic [simt_gpu_pkg::WARPS-1:0][31:0]debug_stack_top_o,
+  output logic [simt_gpu_pkg::WARPS-1:0] debug_resident_o,debug_barrier_wait_o,
+  output logic [simt_gpu_pkg::WARPS-1:0] debug_memory_busy_o,
+  output logic [2:0] debug_tracker_occupancy_o,
+  output logic [simt_gpu_pkg::MAX_MEMORY_OPS-1:0][7:0]debug_tracker_summary_o,
+  output logic [1:0]debug_memory_completion_occupancy_o,
+  output logic [1:0] debug_alu_occupancy_o,debug_mul_occupancy_o,debug_wb_occupancy_o,
+  output logic [simt_gpu_pkg::KERNEL_EPOCH_WIDTH-1:0] debug_epoch_o,
+  output logic debug_quiescent_o
 );
   import simt_gpu_pkg::*;
   import simt_isa_pkg::*;
+  initial assert(BARRIER_TIMEOUT_CYCLES>0);
 
   logic [WARPS-1:0] warp_valid_q;
   logic [WARPS-1:0][31:0] warp_pc_q;
@@ -48,9 +70,7 @@ module simt_core #(
   logic launched_q, done_q;
   logic[WARPS-1:0]resident_warps_q,barrier_wait_q;
   logic [WARPS-1:0][31:0] barrier_pc_q;
-  localparam int unsigned BARRIER_TIMEOUT_WIDTH =
-    BARRIER_TIMEOUT_CYCLES <= 1 ? 1 : $clog2(BARRIER_TIMEOUT_CYCLES);
-  logic [BARRIER_TIMEOUT_WIDTH-1:0] barrier_timeout_q;
+  logic [31:0] barrier_timeout_q;
   logic barrier_release, barrier_arrival, barrier_release_with_arrival;
   logic barrier_timeout_fault;
   logic [31:0] barrier_fault_pc;
@@ -205,13 +225,14 @@ module simt_core #(
     .grant_accept_i(issue_fire));
   assign barrier_release=launched_q&&resident_warps_q!='0&&
                          (barrier_wait_q&resident_warps_q)==resident_warps_q;
-  assign barrier_arrival=scheduler_valid&&selected_opcode==OP_BAR;
+  assign barrier_arrival=scheduler_valid&&selected_opcode==OP_BAR&&
+    !(ENABLE_FAULT_INJECTION&&inject_fault_i[4]);
   assign barrier_release_with_arrival=launched_q&&resident_warps_q!='0&&
     ((barrier_wait_q|(barrier_arrival?(WARPS'(1'b1)<<scheduler_warp):'0))&
       resident_warps_q)==resident_warps_q;
-  assign barrier_timeout_fault=BARRIER_TIMEOUT_CYCLES>0&&
+  assign barrier_timeout_fault=watchdog_enable_i&&watchdog_limit_i!=0&&
     barrier_wait_q!='0&&!barrier_release_with_arrival&&
-    barrier_timeout_q==BARRIER_TIMEOUT_WIDTH'(BARRIER_TIMEOUT_CYCLES-1);
+    barrier_timeout_q>=watchdog_limit_i-1'b1;
   always_comb begin
     barrier_fault_pc='0;
     barrier_fault_pc_found=1'b0;
@@ -357,7 +378,15 @@ module simt_core #(
     .completion_ready_i(memory_completion_ready),.completion_o(memory_completion),
     .fault_valid_o(memory_fault),.fault_code_o(memory_fault_code),
     .fault_pc_o(memory_fault_pc),.warp_busy_o(memory_warp_busy),
-    .tracker_occupancy_o(memory_tracker_occupancy));
+    .tracker_occupancy_o(memory_tracker_occupancy),
+    .debug_tracker_summary_o(debug_tracker_summary_o),
+    .debug_completion_occupancy_o(debug_memory_completion_occupancy_o),
+    .host_valid_i(host_mem_valid_i&&!running_o),.host_shared_i(host_mem_shared_i),
+    .host_write_i(host_mem_write_i),.host_address_i(host_mem_address_i),
+    .host_write_data_i(host_mem_write_data_i),.host_ready_o(host_mem_ready_o),
+    .host_response_valid_o(host_mem_response_valid_o),
+    .host_response_fault_o(host_mem_response_fault_o),
+    .host_read_data_o(host_mem_read_data_o));
 
   always_comb begin
     candidate_predicate = pred_mask ^ {LANES{selected_pred_invert}};
@@ -372,7 +401,10 @@ module simt_core #(
                        branch_not_taken_mask != '0;
     control_fault = 1'b0;
     control_fault_code = FAULT_NONE;
-    if(barrier_timeout_fault)begin
+    if(ENABLE_FAULT_INJECTION&&inject_fault_i[2]&&memory_tracker_occupancy!=0)begin
+      control_fault=1'b1;
+      control_fault_code=FAULT_BARRIER_DEADLOCK;
+    end else if(barrier_timeout_fault)begin
       control_fault=1'b1;
       control_fault_code=FAULT_BARRIER_DEADLOCK;
     end else if (scheduler_valid) begin
@@ -414,6 +446,10 @@ module simt_core #(
     sources[0] = alu_completion;
     sources[1] = mul_completion;
     sources[2] = memory_completion;
+    if(ENABLE_FAULT_INJECTION&&inject_fault_i[0])
+      for(int lane=0;lane<LANES;lane++)sources[2].gpr_data[lane]^=32'h00000001;
+    if(ENABLE_FAULT_INJECTION&&inject_fault_i[1])
+      sources[2].sequence_number^=INSTRUCTION_SEQUENCE_WIDTH'(1);
     alu_completion_ready = source_ready[0];
     mul_completion_ready = source_ready[1];
     memory_completion_ready = source_ready[2];
@@ -495,12 +531,36 @@ module simt_core #(
   assign done_o = done_q;
   assign fault_o = fault_valid;
   assign commit_valid_o = wb_commit_v;
+  assign debug_warp_pc_o=warp_pc_q;
+  assign debug_active_mask_o=warp_active_mask_q;
+  assign debug_gpr_pending_o=gpr_pending;
+  assign debug_pred_pending_o=pred_pending;
+  for(genvar debug_warp=0;debug_warp<WARPS;debug_warp++)begin:gen_debug_stack
+    assign debug_stack_depth_o[debug_warp]=4'(stack_depth_q[debug_warp]);
+    always_comb begin
+      debug_stack_top_o[debug_warp]='0;
+      if(stack_depth_q[debug_warp]!=0)
+        debug_stack_top_o[debug_warp]=stack_reconv_q[debug_warp][stack_depth_q[debug_warp]-1'b1];
+    end
+  end
+  assign debug_resident_o=resident_warps_q;
+  assign debug_barrier_wait_o=barrier_wait_q;
+  assign debug_memory_busy_o=memory_warp_busy;
+  assign debug_tracker_occupancy_o=memory_tracker_occupancy;
+  assign debug_alu_occupancy_o=alu_occupancy;
+  assign debug_mul_occupancy_o=mul_occupancy;
+  assign debug_wb_occupancy_o=writeback_occupancy;
+  assign debug_epoch_o=epoch_q;
+  assign debug_quiescent_o=!running_o&&alu_occupancy==0&&mul_occupancy==0&&
+    mul_stage_valid=='0&&!completion_v&&writeback_occupancy==0&&
+    memory_tracker_occupancy==0&&gpr_pending=='0&&pred_pending=='0;
 
   fatal_fault_controller fault_u (
     .clk(clk), .rst(rst), .clear_i(clear_i),
     .host_fault_i(busy_program_fault), .host_fault_pc_i(selected_fault_pc),
     .fetch_fault_i(fetch_range_fault), .fetch_fault_pc_i(selected_fault_pc),
-    .illegal_fault_i(illegal_fault), .illegal_fault_pc_i(selected_fault_pc),
+    .illegal_fault_i(illegal_fault||(ENABLE_FAULT_INJECTION&&inject_fault_i[3]&&running_o)),
+    .illegal_fault_pc_i(selected_fault_pc),
     .unsupported_fault_i(unsupported_fault),
     .unsupported_fault_pc_i(selected_fault_pc),
     .memory_fault_i(memory_fault),.memory_fault_code_i(memory_fault_code),
@@ -585,7 +645,7 @@ module simt_core #(
         barrier_timeout_q<='0;
       end else if(barrier_wait_q=='0||barrier_release_with_arrival)
         barrier_timeout_q<='0;
-      else if(BARRIER_TIMEOUT_CYCLES>0&&!barrier_timeout_fault)
+      else if(watchdog_enable_i&&watchdog_limit_i!=0&&!barrier_timeout_fault)
         barrier_timeout_q<=barrier_timeout_q+1'b1;
 
       if (issue_fire) begin
@@ -647,7 +707,7 @@ module simt_core #(
               stack_depth_q[scheduler_warp] - 1'b1;
             ssy_valid_q[scheduler_warp] <= 1'b0;
           end
-        end else if(selected_opcode==OP_BAR)begin
+        end else if(selected_opcode==OP_BAR&&!(ENABLE_FAULT_INJECTION&&inject_fault_i[4]))begin
           warp_pc_q[scheduler_warp]<=selected_pc+1'b1;
           barrier_wait_q[scheduler_warp]<=1'b1;
           barrier_pc_q[scheduler_warp]<=selected_pc;

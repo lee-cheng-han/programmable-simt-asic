@@ -1,3 +1,4 @@
+/* verilator lint_off PINCONNECTEMPTY */
 module tb_single_warp_lifecycle;
   import simt_gpu_pkg::*;
   logic clk=0,rst,clear,prog_valid,launch_valid;
@@ -20,7 +21,15 @@ module tb_single_warp_lifecycle;
     .fault_pc_o(fault_pc),.fault_code_o(fault_code),
     .commit_valid_o(commit_valid),.commit_o(commit),
     .cycle_count_o(cycle_count),.issue_count_o(issue_count),
-    .commit_count_o(commit_count));
+    .commit_count_o(commit_count),.watchdog_enable_i(1'b1),.watchdog_limit_i(32'd256),
+    .host_mem_valid_i(1'b0),.host_mem_shared_i(1'b0),.host_mem_write_i(1'b0),
+    .host_mem_address_i('0),.host_mem_write_data_i('0),.inject_fault_i('0),.host_mem_ready_o(),.host_mem_response_valid_o(),.host_mem_response_fault_o(),
+    .host_mem_read_data_o(),.debug_warp_pc_o(),.debug_active_mask_o(),
+    .debug_gpr_pending_o(),.debug_pred_pending_o(),.debug_stack_depth_o(),
+    .debug_resident_o(),.debug_barrier_wait_o(),.debug_memory_busy_o(),
+    .debug_tracker_occupancy_o(),.debug_alu_occupancy_o(),.debug_mul_occupancy_o(),
+    .debug_wb_occupancy_o(),.debug_epoch_o(),.debug_quiescent_o(),
+    .debug_stack_top_o(),.debug_tracker_summary_o(),.debug_memory_completion_occupancy_o());
   task automatic pulse_clear; @(negedge clk); clear=1; @(posedge clk); #1; clear=0; endtask
   task automatic program_word(input logic[5:0]a,input logic[31:0]d);
     @(negedge clk); prog_addr=a;prog_data=d;prog_valid=1;@(posedge clk);#1;prog_valid=0; endtask

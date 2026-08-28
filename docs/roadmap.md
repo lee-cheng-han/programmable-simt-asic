@@ -464,9 +464,12 @@ SRAM, or respond to the host.
 
 The integrated ASIC top and host controller pass strict Verilator lint. Directed
 tests cover host backpressure/control semantics, invalid accesses, test-mode
-ownership, and asynchronous reset assertion with synchronous release. Dedicated
-CDC/RDC-tool reports and post-synthesis equivalence remain required before the
-static-signoff gate can close.
+ownership, and asynchronous reset assertion with synchronous release. The
+structural CDC/RDC inventory reports 22 state processes, one clock domain, and
+one reviewed asynchronous-reset synchronizer. Compositional RTL-to-synthesis
+equivalence closes the ASIC integration partition with zero unproven points. The
+reproducible evidence and methodology boundaries are recorded in
+`docs/static_rtl_signoff.md`; the pre-DFT static-signoff gate is complete.
 
 ### Host and SRAM integration
 
@@ -492,6 +495,15 @@ Provide verification-build-only injection of SRAM read corruption, completion-
 tag corruption, tracker timeout, illegal instructions, and suppressed barrier
 arrival. Production synthesis removes or disables these hooks and records their
 status in the build manifest.
+
+Current result: this gate is complete. The real bank engines expose a
+quiescent-only scalar maintenance port for general/shared initialization and
+readback. The expanded Wishbone map includes watchdog control, build identity,
+quiescence/epoch, breadcrumbs, bounded warp/stack/tracker/queue snapshots, and a
+production-disabled five-hook injection register. The four-warp ASIC-top
+diagnostic passes 114 bus/integration checks and 40 architectural commits after
+host initialization/readback of both SRAM spaces. Reproducible evidence and the
+frozen memory-lifetime policy are in `docs/host_sram_integration.md`.
 
 ### MPW harness integration
 

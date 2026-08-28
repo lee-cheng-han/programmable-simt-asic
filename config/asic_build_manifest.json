@@ -1,0 +1,16 @@
+{
+  "build": "production",
+  "fault_injection_enabled": false,
+  "fault_injection_bits": {
+    "0": "sram_read_corruption",
+    "1": "completion_tag_corruption",
+    "2": "tracker_timeout",
+    "3": "illegal_instruction",
+    "4": "suppressed_barrier_arrival"
+  },
+  "host_maintenance_requires_quiescence": true,
+  "memory_reset_contents": "unspecified",
+  "host_clear_preserves_memory": true,
+  "fault_preserves_memory": true,
+  "bist_is_destructive": true
+}

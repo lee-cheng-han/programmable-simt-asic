@@ -19,6 +19,14 @@ domain and no architectural clock gating.
 | `0x18` | R | Sticky fault code |
 | `0x1c` | R | Sticky fault PC |
 | `0x20`–`0x34` | R | Cycle, issue, and commit counters, low word then high word |
+| `0x38` | R/W | Barrier watchdog enable and limit |
+| `0x3c` | R | Build ID (`SIMT`) |
+| `0x40` | R | Quiescence and epoch |
+| `0x44` | R | Bring-up breadcrumbs |
+| `0x48`–`0x80` | R/W, R | Snapshot trigger and bounded warp/pipeline snapshot |
+| `0x84`–`0x90` | R/W | Quiescent general/shared SRAM maintenance port |
+| `0x94` | R/W | Verification-only injection mask; disabled in production |
+| `0xa0`–`0xbc` | R | Captured SIMT-stack tops and tracker summaries |
 
 Transactions are single-cycle classic Wishbone completions. Misaligned or
 unmapped addresses terminate with `err` and without `ack`. Byte selects apply to
@@ -52,3 +60,5 @@ The contract checker enforces the top-level mode ports, host map, functional and
 scan SDCs, and UPF presence. Directed tests cover byte writes, programming,
 launch backpressure, clear pulses, counter/status reads, invalid transactions,
 test ownership, and asynchronous-assert/synchronous-release reset behavior.
+The completed integration evidence is recorded in
+`docs/host_sram_integration.md`.

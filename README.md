@@ -13,9 +13,9 @@ checkable architectural behavior.
 
 ```text
 Release stage:  ASIC implementation readiness
-Completed:      Core; memory verification closure; ASIC host/reset/mode interface freeze
+Completed:      Core; memory verification; ASIC interface/static signoff; host/SRAM integration
 Verified:       31-run XSim differential matrix, 51/51 approved bins, four formal targets, and 13/13 mutation detection
-In progress:    Scan insertion, SRAM BIST, ATPG, and routed ASIC implementation preparation
+In progress:    MPW harness integration, scan insertion, SRAM BIST, and ATPG
 Current:        17-macro mapped ASIC netlist and legally placed integrated trial
 Next:           Close tool-inserted DFT and advance the balanced ASIC configuration through routed physical design
 Not started:    Routed physical implementation, FPGA shell
@@ -28,6 +28,11 @@ regression, coverage, formal, mutation, synthesis, and placement gates.
 passing ten-run licensed regression and 51/51 coverage release gate.
 [ASIC interface freeze](docs/asic_interface_freeze.md) records the Wishbone map,
 reset release, test ownership, scan anchors, mode constraints, and power contract.
+[Static RTL signoff](docs/static_rtl_signoff.md) records the clock/reset inventory,
+reset-side-effect checks, synthesis equivalence, and explicit proof boundaries.
+[Host/SRAM integration](docs/host_sram_integration.md) records quiescent
+maintenance access, bounded debug capture, breadcrumbs, injection disposition,
+and the 114-check four-warp diagnostic with 40 architectural commits.
 [Measured warp-interleaving results](docs/performance_results.md) report the
 checked-in one-warp versus four-warp arithmetic baseline.
 Supporting documents explain individual topics but cannot override it.

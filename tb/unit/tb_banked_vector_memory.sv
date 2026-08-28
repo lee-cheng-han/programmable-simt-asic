@@ -5,6 +5,8 @@ module tb_banked_vector_memory;
   word_t [LANES-1:0] request_address,request_store_data,response_load_data;
   logic response_valid,response_ready,response_fault,response_misaligned;
   logic response_out_of_range,busy;
+  logic host_valid_i,host_ready_o,host_write_i,host_response_valid_o,host_response_fault_o;
+  logic[31:0]host_address_i,host_write_data_i,host_read_data_o;
   int checks;
   /* verilator lint_off BLKSEQ */
   always #5 clk=~clk;
@@ -31,7 +33,7 @@ module tb_banked_vector_memory;
 
   initial begin
     rst=1;clear=0;request_valid=0;request_store=0;request_mask=0;
-    response_ready=0;checks=0;
+    response_ready=0;host_valid_i=0;host_write_i=0;host_address_i=0;host_write_data_i=0;checks=0;
     for(int lane=0;lane<LANES;lane++)begin
       request_address[lane]=0;request_store_data[lane]=0;
     end
@@ -77,6 +79,13 @@ module tb_banked_vector_memory;
     while(!response_valid)@(negedge clk);
     if(!response_fault||!response_out_of_range)$fatal(1,"range fault mismatch");
     finish_response();
+    @(negedge clk);host_address_i=32'h20;host_write_data_i=32'hc001cafe;host_write_i=1;host_valid_i=1;
+    if(!host_ready_o)$fatal(1,"host maintenance write not ready");
+    @(posedge clk);@(negedge clk);host_valid_i=0;while(!host_response_valid_o)@(negedge clk);
+    if(host_response_fault_o)$fatal(1,"host maintenance write fault");checks++;
+    @(posedge clk);@(negedge clk);host_write_i=0;host_valid_i=1;
+    @(posedge clk);@(negedge clk);host_valid_i=0;while(!host_response_valid_o)@(negedge clk);
+    if(host_response_fault_o||host_read_data_o!==32'hc001cafe)$fatal(1,"host maintenance read mismatch");checks++;
     $display("PASS tb_banked_vector_memory checks=%0d",checks);$finish;
   end
 endmodule

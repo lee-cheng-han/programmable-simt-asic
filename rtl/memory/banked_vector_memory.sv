@@ -24,12 +24,22 @@ module banked_vector_memory #(
   output simt_gpu_pkg::lane_mask_t response_mask_o,
   output simt_gpu_pkg::word_t [simt_gpu_pkg::LANES-1:0] response_load_data_o,
   output simt_gpu_pkg::lane_mask_t pending_mask_o,
-  output logic busy_o
+  output logic busy_o,
+
+  // Quiescent-only scalar maintenance port used by the ASIC host wrapper.
+  input logic host_valid_i,
+  output logic host_ready_o,
+  input logic host_write_i,
+  input logic [31:0] host_address_i,
+  input logic [31:0] host_write_data_i,
+  output logic host_response_valid_o,
+  output logic host_response_fault_o,
+  output logic [31:0] host_read_data_o
 );
   import simt_gpu_pkg::*;
 
   localparam int unsigned BANK_WORD_ADDR_W=(ROWS<=1)?1:$clog2(ROWS);
-  logic store_q;
+  logic store_q,host_q;
   lane_mask_t participation_q,pending_q;
   word_t [LANES-1:0] address_q,store_data_q,load_data_q;
   logic response_valid_q,response_fault_q,misaligned_q,out_of_range_q;
@@ -52,13 +62,17 @@ module banked_vector_memory #(
     end
     request_fault=request_misaligned||request_out_of_range;
     busy_o=(pending_q!='0);
-    request_ready_o=(pending_q=='0)&&!response_valid_q;
-    response_valid_o=response_valid_q;
+    request_ready_o=(pending_q=='0)&&!response_valid_q&&!host_valid_i;
+    host_ready_o=(pending_q=='0)&&!response_valid_q;
+    response_valid_o=response_valid_q&&!host_q;
     response_fault_o=response_fault_q;
     response_misaligned_o=misaligned_q;
     response_out_of_range_o=out_of_range_q;
     response_mask_o=participation_q;
     response_load_data_o=load_data_q;
+    host_response_valid_o=response_valid_q&&host_q;
+    host_response_fault_o=response_fault_q;
+    host_read_data_o=load_data_q[0];
     pending_mask_o=pending_q;
 
     bank_used='0;bank_issue_mask='0;completed_mask='0;
@@ -110,7 +124,7 @@ module banked_vector_memory #(
 
   always_ff @(posedge clk) begin
     if(rst||clear_i) begin
-      store_q<=1'b0;participation_q<='0;pending_q<='0;
+      store_q<=1'b0;host_q<=1'b0;participation_q<='0;pending_q<='0;
       response_valid_q<=1'b0;response_fault_q<=1'b0;
       misaligned_q<=1'b0;out_of_range_q<=1'b0;
       for(int unsigned lane=0;lane<LANES;lane++) begin
@@ -118,9 +132,22 @@ module banked_vector_memory #(
       end
       bank_response_lane_q<='0;
     end else begin
-      if(response_valid_q&&response_ready_i) response_valid_q<=1'b0;
-      if(request_valid_i&&request_ready_o) begin
-        store_q<=request_store_i;participation_q<=request_mask_i;
+      if(response_valid_q&&(response_ready_i||host_q)) response_valid_q<=1'b0;
+      if(host_valid_i&&host_ready_o) begin
+        host_q<=1'b1;store_q<=host_write_i;participation_q<=lane_mask_t'(1);
+        response_fault_q<=(host_address_i[1:0]!=2'b00)||(host_address_i>=MEMORY_BYTES);
+        misaligned_q<=host_address_i[1:0]!=2'b00;
+        out_of_range_q<=host_address_i>=MEMORY_BYTES;
+        for(int unsigned lane=0;lane<LANES;lane++) begin
+          address_q[lane]<=host_address_i;
+          store_data_q[lane]<=host_write_data_i;
+          load_data_q[lane]<='0;
+        end
+        if((host_address_i[1:0]!=2'b00)||(host_address_i>=MEMORY_BYTES)) begin
+          pending_q<='0;response_valid_q<=1'b1;
+        end else pending_q<=lane_mask_t'(1);
+      end else if(request_valid_i&&request_ready_o) begin
+        host_q<=1'b0;store_q<=request_store_i;participation_q<=request_mask_i;
         response_fault_q<=request_fault;misaligned_q<=request_misaligned;
         out_of_range_q<=request_out_of_range;
         for(int unsigned lane=0;lane<LANES;lane++) begin

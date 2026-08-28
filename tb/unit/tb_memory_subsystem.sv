@@ -10,6 +10,9 @@ module tb_memory_subsystem;
   /* verilator lint_on UNUSEDSIGNAL */
   logic fault_valid;fault_code_t fault_code;logic[31:0]fault_pc;
   logic[WARPS-1:0]warp_busy;logic[2:0]tracker_occupancy;int checks;
+  logic host_valid_i,host_shared_i,host_write_i,host_ready_o,host_response_valid_o,host_response_fault_o;
+  logic[31:0]host_address_i,host_write_data_i,host_read_data_o;
+  logic[MAX_MEMORY_OPS-1:0][7:0]debug_tracker_summary_o;logic[1:0]debug_completion_occupancy_o;
   /* verilator lint_off BLKSEQ */ always #5 clk=~clk; /* verilator lint_on BLKSEQ */
   memory_subsystem dut(.*,.clear_i(clear),.fatal_i(fatal),
     .request_valid_i(request_valid),.request_ready_o(request_ready),
@@ -45,6 +48,7 @@ module tb_memory_subsystem;
     rst=1;clear=0;fatal=0;request_valid=0;request_shared=0;request_store=0;
     request_epoch=1;request_warp=0;request_sequence=0;request_pc=0;request_instruction=0;
     request_active_mask='1;request_mask='1;request_gpr_dst=3;completion_ready=0;checks=0;
+    host_valid_i=0;host_shared_i=0;host_write_i=0;host_address_i=0;host_write_data_i=0;
     for(int lane=0;lane<LANES;lane++)begin request_address[lane]=0;request_store_data[lane]=0;end
     repeat(2)@(posedge clk);@(negedge clk);rst=0;
     issue(0,0,1,0);
@@ -56,7 +60,9 @@ module tb_memory_subsystem;
     // Same-warp and fifth requests remain blocked until their tracker retires.
     repeat(20)@(negedge clk);
     take_completion(0,0);take_completion(1,0);take_completion(2,0);take_completion(3,0);
-    if(tracker_occupancy!=0||warp_busy!='0)$fatal(1,"trackers did not drain");
+    if(tracker_occupancy!=0||warp_busy!='0||debug_tracker_summary_o!='0)
+      $fatal(1,"trackers did not drain");
+    checks++;if(debug_completion_occupancy_o!=0)$fatal(1,"memory completion queue not drained");
     issue(0,0,0,1);while(!completion_valid)@(negedge clk);
     for(int lane=0;lane<LANES;lane++)
       if(completion.gpr_data[lane]!==word_t'(32'h1000+lane))
@@ -69,6 +75,13 @@ module tb_memory_subsystem;
     repeat(10)begin @(negedge clk);if(fault_valid)break;end
     if(!fault_valid||fault_code!=FAULT_MEMORY_MISALIGNED||fault_pc!=32'h88)
       $fatal(1,"memory fault mismatch");checks++;
+    @(negedge clk);host_address_i=32'h40;host_write_data_i=32'h55aa1234;host_write_i=1;host_valid_i=1;
+    if(!host_ready_o)$fatal(1,"quiescent host memory access blocked");
+    @(posedge clk);@(negedge clk);host_valid_i=0;while(!host_response_valid_o)@(negedge clk);
+    if(host_response_fault_o)$fatal(1,"host write fault");checks++;
+    @(posedge clk);@(negedge clk);host_write_i=0;host_valid_i=1;
+    @(posedge clk);@(negedge clk);host_valid_i=0;while(!host_response_valid_o)@(negedge clk);
+    if(host_response_fault_o||host_read_data_o!==32'h55aa1234)$fatal(1,"host readback mismatch");checks++;
     $display("PASS tb_memory_subsystem checks=%0d",checks);$finish;
   end
 endmodule

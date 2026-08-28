@@ -1,3 +1,4 @@
+/* verilator lint_off PINCONNECTEMPTY */
 module tb_shared_reduction;
   import simt_gpu_pkg::*;import simt_isa_pkg::*;
   logic clk=0,rst,clear,prog_valid,launch_valid,launch_ready,running,done,fault,commit_valid;
@@ -16,7 +17,16 @@ module tb_shared_reduction;
     .fetch_response_ready_i(1'b1),.execute_completion_ready_i(1'b1),.commit_ready_i(1'b1),
     .running_o(running),.done_o(done),.fault_o(fault),.fault_pc_o(fault_pc),
     .fault_code_o(fault_code),.commit_valid_o(commit_valid),.commit_o(commit),
-    .cycle_count_o(cycles),.issue_count_o(issues),.commit_count_o(commits));
+    .cycle_count_o(cycles),.issue_count_o(issues),.commit_count_o(commits),
+    .watchdog_enable_i(1'b1),.watchdog_limit_i(32'd256),.host_mem_valid_i(1'b0),
+    .host_mem_shared_i(1'b0),.host_mem_write_i(1'b0),.host_mem_address_i('0),
+    .host_mem_write_data_i('0),.inject_fault_i('0),.host_mem_ready_o(),.host_mem_response_valid_o(),.host_mem_response_fault_o(),
+    .host_mem_read_data_o(),.debug_warp_pc_o(),.debug_active_mask_o(),
+    .debug_gpr_pending_o(),.debug_pred_pending_o(),.debug_stack_depth_o(),
+    .debug_resident_o(),.debug_barrier_wait_o(),.debug_memory_busy_o(),
+    .debug_tracker_occupancy_o(),.debug_alu_occupancy_o(),.debug_mul_occupancy_o(),
+    .debug_wb_occupancy_o(),.debug_epoch_o(),.debug_quiescent_o(),
+    .debug_stack_top_o(),.debug_tracker_summary_o(),.debug_memory_completion_occupancy_o());
   function automatic logic[31:0]enc(input opcode_t op,input logic[3:0]rd,
     input logic[3:0]ra,input logic[3:0]rb,input logic[9:0]imm);
     return {op,4'b0,rd,ra,rb,imm};endfunction
