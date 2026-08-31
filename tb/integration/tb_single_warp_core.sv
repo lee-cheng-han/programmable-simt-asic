@@ -14,7 +14,7 @@ module tb_single_warp_core;
   integer trace_file;
   int unsigned commits;
   always #5 clk <= ~clk;
-  simt_core dut (.*,
+  simt_core dut (.*,.diagnostic_count_o(),.counter_saturated_o(),
     .clear_i(clear), .prog_valid_i(prog_valid), .prog_addr_i(prog_addr),
     .prog_data_i(prog_data), .launch_valid_i(launch_valid),
     .launch_ready_o(launch_ready), .launch_pc_i(launch_pc),

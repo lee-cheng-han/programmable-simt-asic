@@ -23,6 +23,8 @@ module simt_core #(
   output logic commit_valid_o,
   output simt_gpu_pkg::completion_record_t commit_o,
   output logic [63:0] cycle_count_o, issue_count_o, commit_count_o,
+  output logic [7:0][31:0] diagnostic_count_o,
+  output logic counter_saturated_o,
   input logic watchdog_enable_i,input logic[31:0]watchdog_limit_i,
   input logic host_mem_valid_i,host_mem_shared_i,host_mem_write_i,
   input logic[31:0]host_mem_address_i,host_mem_write_data_i,
@@ -66,6 +68,8 @@ module simt_core #(
     cycle_count_o = {32'(IMEM_WORDS), launch_pc_i};
     issue_count_o = {32'(BARRIER_TIMEOUT_CYCLES), prog_data_i};
     commit_count_o = {61'b0, launch_warp_count_i};
+    diagnostic_count_o = {8{prog_data_i}};
+    counter_saturated_o = &prog_data_i;
     host_mem_ready_o=!rst;host_mem_response_valid_o=host_mem_valid_i;
     host_mem_response_fault_o=host_mem_address_i[1:0]!=0;
     host_mem_read_data_o=host_mem_address_i^host_mem_write_data_i;

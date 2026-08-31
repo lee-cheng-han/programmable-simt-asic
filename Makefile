@@ -4,7 +4,7 @@ CXXFLAGS ?= -std=c++17 -Wall -Wextra -Wpedantic -Werror -O2
 BUILD := build
 PROGRAM ?= tb/programs/arithmetic.s
 
-.PHONY: all test python-test emulator-test rtl-test docs-check asic-lint asic-contract asic-cdc asic-equivalence asic-static-signoff host-sram-contract host-sram-integration host-sram-release uvm-compile uvm-differential uvm-regression coverage-report coverage-closure formal mutation-smoke sram-check sram-adapter-check trial-floorplan integrated-floorplan synth-elab synth synth-mapped assemble disassemble xsim-smoke clean
+.PHONY: all test python-test emulator-test rtl-test docs-check asic-lint asic-contract asic-cdc asic-equivalence asic-static-signoff host-sram-contract host-sram-integration host-sram-release host-plan dft-release uvm-compile uvm-differential uvm-regression coverage-report coverage-closure formal mutation-smoke sram-check sram-adapter-check trial-floorplan integrated-floorplan synth-elab synth synth-mapped assemble disassemble xsim-smoke clean
 all: $(BUILD)/simt-emulator
 
 $(BUILD):
@@ -51,6 +51,12 @@ host-sram-contract:
 	$(PYTHON) scripts/check_host_sram_contract.py
 
 host-sram-release: asic-static-signoff host-sram-contract host-sram-integration
+
+host-plan: assemble
+	$(PYTHON) tools/host/runtime.py $(BUILD)/$(notdir $(basename $(PROGRAM))).bin --output $(BUILD)/host_plan.json
+
+dft-release: host-sram-integration
+	scripts/run_dft_release.sh
 
 uvm-compile: $(BUILD)/simt-emulator
 	UVM_ELAB_ONLY=1 scripts/run_uvm_differential.sh

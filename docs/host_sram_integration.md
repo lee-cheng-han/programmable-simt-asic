@@ -52,3 +52,21 @@ make host-sram-release
 The release gate includes the pre-DFT static-signoff gate, build-contract check,
 diagnostic assembly, strict lint, RTL-to-synthesis integration equivalence, and
 the end-to-end host/SRAM simulation.
+
+## Runtime and performance visibility
+
+The host map exposes eight saturating diagnostic counters at `0xc0` through
+`0xdc`: empty eligibility, dependency stall, execution backpressure, memory
+active, completion stall, barrier wait, divergent branches, and fatal events.
+`0xe0[0]` is sticky when any diagnostic counter saturates. Cycle, issue, and
+commit counts remain 64-bit wrapping architectural counters.
+
+`tools/host/runtime.py` is the transport-independent host runtime. It implements
+program loading, explicit SRAM initialization/readback, launch, polling, fault
+inspection, coherent 64-bit counter reads, and diagnostic capture. Its CLI emits
+a versioned JSON Wishbone transaction plan so an MPW or FPGA transport can be
+added without changing launch semantics:
+
+```sh
+make host-plan PROGRAM=tb/programs/asic_diagnostic.s
+```

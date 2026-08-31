@@ -11,6 +11,7 @@ module asic_host_controller #(parameter int unsigned IMEM_ADDR_W=6,
   input logic running_i,done_i,fault_i,input logic[31:0]fault_pc_i,
   input simt_gpu_pkg::fault_code_t fault_code_i,input logic[63:0]cycle_count_i,issue_count_i,commit_count_i,
   input logic quiescent_i,input logic[simt_gpu_pkg::KERNEL_EPOCH_WIDTH-1:0]epoch_i,
+  input logic[7:0][31:0]diagnostic_count_i,input logic counter_saturated_i,
   input logic[simt_gpu_pkg::WARPS-1:0][31:0]debug_warp_pc_i,
   input simt_gpu_pkg::lane_mask_t debug_active_mask_i[simt_gpu_pkg::WARPS],
   input logic[simt_gpu_pkg::WARPS-1:0][simt_gpu_pkg::REGS_PER_THREAD-1:0]debug_gpr_pending_i,
@@ -37,6 +38,7 @@ module asic_host_controller #(parameter int unsigned IMEM_ADDR_W=6,
   localparam logic[7:0] A_PIPELINE=8'h80,A_MEM_ADDR=8'h84,A_MEM_WDATA=8'h88,A_MEM_COMMAND=8'h8c;
   localparam logic[7:0] A_MEM_RDATA=8'h90,A_INJECT=8'h94;
   localparam logic[7:0] A_STACK_TOP0=8'ha0,A_TRACKER0=8'hb0;
+  localparam logic[7:0] A_DIAGNOSTIC0=8'hc0,A_COUNTER_STATUS=8'he0;
   logic request,address_valid,write_allowed,transaction_error;
   /* verilator lint_off UNUSEDSIGNAL */
   logic[31:0]merged_launch_pc,merged_prog_data,merged_watchdog,warp_count_word,imem_addr_word;
@@ -53,7 +55,8 @@ module asic_host_controller #(parameter int unsigned IMEM_ADDR_W=6,
       (wb_adr_i>=A_WARP_HAZARD0&&wb_adr_i<=A_WARP_HAZARD0+8'h0c)||
       (wb_adr_i>=A_PIPELINE&&wb_adr_i<=A_INJECT)||
       (wb_adr_i>=A_STACK_TOP0&&wb_adr_i<=A_STACK_TOP0+8'h0c)||
-      (wb_adr_i>=A_TRACKER0&&wb_adr_i<=A_TRACKER0+8'h0c));
+      (wb_adr_i>=A_TRACKER0&&wb_adr_i<=A_TRACKER0+8'h0c)||
+      (wb_adr_i>=A_DIAGNOSTIC0&&wb_adr_i<=A_COUNTER_STATUS));
     write_allowed=wb_adr_i==A_CONTROL||wb_adr_i==A_LAUNCH_PC||wb_adr_i==A_WARP_COUNT||
       wb_adr_i==A_IMEM_ADDR||wb_adr_i==A_IMEM_DATA||wb_adr_i==A_WATCHDOG||
       wb_adr_i==A_MEM_ADDR||wb_adr_i==A_MEM_WDATA||wb_adr_i==A_MEM_COMMAND||
@@ -84,6 +87,7 @@ module asic_host_controller #(parameter int unsigned IMEM_ADDR_W=6,
       A_MEM_COMMAND:wb_dat_o={27'b0,mem_fault_q,mem_busy_q,host_mem_shared_o,host_mem_write_o,1'b0};
       A_MEM_RDATA:wb_dat_o=mem_read_data_q;
       A_INJECT:wb_dat_o=ENABLE_FAULT_INJECTION?{27'b0,inject_fault_o}:32'b0;
+      A_COUNTER_STATUS:wb_dat_o={31'b0,counter_saturated_i};
       default:begin
         for(int w=0;w<WARPS;w++)begin
           if(wb_adr_i==A_WARP_PC0+8'(4*w))wb_dat_o=snapshot_pc_q[w];
@@ -91,6 +95,7 @@ module asic_host_controller #(parameter int unsigned IMEM_ADDR_W=6,
           if(wb_adr_i==A_WARP_HAZARD0+8'(4*w))wb_dat_o=snapshot_hazard_q[w];end
         for(int w=0;w<WARPS;w++)if(wb_adr_i==A_STACK_TOP0+8'(4*w))wb_dat_o=snapshot_stack_top_q[w];
         for(int t=0;t<MAX_MEMORY_OPS;t++)if(wb_adr_i==A_TRACKER0+8'(4*t))wb_dat_o=snapshot_tracker_q[t];
+        for(int c=0;c<8;c++)if(wb_adr_i==A_DIAGNOSTIC0+8'(4*c))wb_dat_o=diagnostic_count_i[c];
       end
     endcase
     merged_launch_pc=launch_pc_o;merged_prog_data=prog_data_o;warp_count_word={29'b0,launch_warp_count_o};

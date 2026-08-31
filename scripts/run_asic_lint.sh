@@ -3,7 +3,7 @@ set -eu
 mkdir -p build
 python3 tools/gen_isa_sv.py isa/isa.json build/simt_isa_pkg.sv
 verilator --lint-only --timing --assert --Wall \
-  -GUSE_IHP_IMEM=0 -GUSE_IHP_DATA_SRAM=0 --top-module simt_asic_top \
+  -GUSE_IHP_IMEM=0 -GUSE_IHP_DATA_SRAM=0 --top-module simt_mpw_wrapper \
   build/simt_isa_pkg.sv rtl/simt_gpu_pkg.sv \
   rtl/frontend/instruction_decoder.sv \
   rtl/register_file/vector_register_file.sv rtl/register_file/predicate_register_file.sv \
@@ -16,5 +16,6 @@ verilator --lint-only --timing --assert --Wall \
   rtl/memory/memory_subsystem.sv physical/ihp_sram_blackbox.sv \
   rtl/frontend/instruction_sram_adapter.sv rtl/frontend/warp_instruction_frontend.sv \
   rtl/core/simt_core.sv rtl/asic/reset_synchronizer.sv \
-  rtl/asic/asic_host_controller.sv rtl/asic/simt_asic_top.sv
+  rtl/asic/asic_host_controller.sv rtl/asic/sram_bist_controller.sv rtl/asic/simt_asic_top.sv \
+  rtl/asic/simt_mpw_wrapper.sv
 echo 'PASS ASIC top lint and integration contract'

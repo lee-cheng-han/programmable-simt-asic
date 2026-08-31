@@ -27,6 +27,8 @@ domain and no architectural clock gating.
 | `0x84`–`0x90` | R/W | Quiescent general/shared SRAM maintenance port |
 | `0x94` | R/W | Verification-only injection mask; disabled in production |
 | `0xa0`–`0xbc` | R | Captured SIMT-stack tops and tracker summaries |
+| `0xc0`–`0xdc` | R | Eight 32-bit saturating diagnostic counters |
+| `0xe0` | R | Sticky aggregate counter-saturation status |
 
 Transactions are single-cycle classic Wishbone completions. Misaligned or
 unmapped addresses terminate with `err` and without `ack`. Byte selects apply to

@@ -17,7 +17,7 @@ module tb_single_warp_memory;
     .fetch_response_ready_i(1'b1),.execute_completion_ready_i(1'b1),.commit_ready_i(1'b1),
     .running_o(running),.done_o(done),.fault_o(fault),.fault_pc_o(fault_pc),
     .fault_code_o(fault_code),.commit_valid_o(commit_valid),.commit_o(commit),
-    .cycle_count_o(cycle_count),.issue_count_o(issue_count),.commit_count_o(commit_count),
+    .cycle_count_o(cycle_count),.issue_count_o(issue_count),.commit_count_o(commit_count),.diagnostic_count_o(),.counter_saturated_o(),
     .watchdog_enable_i(1'b1),.watchdog_limit_i(32'd256),.host_mem_valid_i(1'b0),
     .host_mem_shared_i(1'b0),.host_mem_write_i(1'b0),.host_mem_address_i('0),
     .host_mem_write_data_i('0),.inject_fault_i('0),.host_mem_ready_o(),.host_mem_response_valid_o(),.host_mem_response_fault_o(),

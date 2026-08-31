@@ -16,6 +16,6 @@ verilator --binary --timing --assert --Wall -Wno-UNUSEDPARAM \
   rtl/memory/banked_vector_memory.sv rtl/memory/memory_subsystem.sv \
   rtl/frontend/instruction_sram_adapter.sv rtl/frontend/warp_instruction_frontend.sv \
   rtl/core/simt_core.sv rtl/asic/reset_synchronizer.sv \
-  rtl/asic/asic_host_controller.sv rtl/asic/simt_asic_top.sv \
+  rtl/asic/asic_host_controller.sv rtl/asic/sram_bist_controller.sv rtl/asic/simt_asic_top.sv \
   tb/integration/tb_asic_host_sram.sv
 build/verilator/asic_host_sram/Vtb_asic_host_sram

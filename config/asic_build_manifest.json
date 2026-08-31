@@ -12,5 +12,10 @@
   "memory_reset_contents": "unspecified",
   "host_clear_preserves_memory": true,
   "fault_preserves_memory": true,
-  "bist_is_destructive": true
+  "bist_is_destructive": true,
+  "bist_algorithm": "six-pass zero/one/checkerboard",
+  "bist_first_failure_capture": true,
+  "scan_chains": 4,
+  "scan_clock_hz": 10000000,
+  "manual_clock_gating": false
 }

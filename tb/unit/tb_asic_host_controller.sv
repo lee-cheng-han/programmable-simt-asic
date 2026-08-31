@@ -8,6 +8,7 @@ module tb_asic_host_controller;
   logic[31:0]launch_pc,prog_data,fault_pc;logic[2:0]warp_count;
   logic[5:0]prog_addr;fault_code_t fault_code;
   logic[63:0]cycles,issues,commits;int unsigned checks;
+  logic[7:0][31:0]diagnostic_count;logic counter_saturated;
   logic quiescent;logic[KERNEL_EPOCH_WIDTH-1:0]epoch;
   logic[WARPS-1:0][31:0]debug_warp_pc;lane_mask_t debug_active_mask[WARPS];
   logic[WARPS-1:0][REGS_PER_THREAD-1:0]debug_gpr_pending;
@@ -32,6 +33,7 @@ module tb_asic_host_controller;
     .prog_addr_o(prog_addr),.prog_data_o(prog_data),.running_i(running),
     .done_i(done),.fault_i(fault),.fault_pc_i(fault_pc),.fault_code_i(fault_code),
     .cycle_count_i(cycles),.issue_count_i(issues),.commit_count_i(commits),
+    .diagnostic_count_i(diagnostic_count),.counter_saturated_i(counter_saturated),
     .quiescent_i(quiescent),.epoch_i(epoch),.debug_warp_pc_i(debug_warp_pc),
     .debug_active_mask_i(debug_active_mask),.debug_gpr_pending_i(debug_gpr_pending),
     .debug_pred_pending_i(debug_pred_pending),.debug_stack_depth_i(debug_stack_depth),
@@ -65,6 +67,7 @@ module tb_asic_host_controller;
     launch_ready=0;running=0;done=0;fault=0;fault_pc=32'h1234;
     fault_code=FAULT_MEMORY_MISALIGNED;cycles=64'h11223344_55667788;
     issues=64'h01020304_05060708;commits=64'haabbccdd_eeff0011;checks=0;
+    diagnostic_count='0;counter_saturated=0;
     quiescent=1;epoch=3;debug_warp_pc='0;debug_gpr_pending='0;debug_pred_pending='0;
     debug_stack_depth='0;debug_resident='0;debug_barrier_wait='0;debug_memory_busy='0;
     debug_stack_top='0;debug_tracker_summary='0;debug_memory_completion_occupancy=0;
@@ -96,6 +99,9 @@ module tb_asic_host_controller;
     debug_stack_top[0]=32'h88;debug_tracker_summary[0]=8'ha5;
     write_reg(8'h00,32'h4);read_reg(8'h50,32'h44);read_reg(8'h60,32'h0000023f);
     read_reg(8'ha0,32'h88);read_reg(8'hb0,32'ha5);
+    diagnostic_count[0]=32'h12345678;diagnostic_count[7]=32'h87654321;
+    read_reg(8'hc0,32'h12345678);read_reg(8'hdc,32'h87654321);
+    counter_saturated=1;read_reg(8'he0,32'h1);
     write_reg(8'h84,32'h20);write_reg(8'h88,32'hc001cafe);write_reg(8'h8c,32'h3);
     checks++;if(!host_mem_valid||!host_mem_write||host_mem_address!=32'h20)$fatal(1,"maintenance request");
     @(posedge clk);@(negedge clk);host_mem_response_valid=1;host_mem_read_data=32'hc001cafe;

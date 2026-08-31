@@ -12,6 +12,8 @@ module tb_four_warp_core;
   completion_record_t commit;
   /* verilator lint_on UNUSEDSIGNAL */
   logic [63:0] cycle_count, issue_count, commit_count;
+  /* verilator lint_off UNUSEDSIGNAL */logic[7:0][31:0]diagnostic_count;/* verilator lint_on UNUSEDSIGNAL */
+  logic counter_saturated;
   int unsigned expected_sequence [WARPS];
   int unsigned observed_commits [WARPS];
   logic [63:0] one_warp_cycles, four_warp_cycles, relaunch_cycles;
@@ -21,7 +23,7 @@ module tb_four_warp_core;
   always #5 clk = ~clk;
   /* verilator lint_on BLKSEQ */
 
-  simt_core dut (
+  simt_core #(.DIAGNOSTIC_COUNTER_MAX(32'd3))dut (
     .clk(clk), .rst(rst), .clear_i(clear),
     .prog_valid_i(prog_valid), .prog_addr_i(prog_addr),
     .prog_data_i(prog_data), .launch_valid_i(launch_valid),
@@ -32,7 +34,7 @@ module tb_four_warp_core;
     .done_o(done), .fault_o(fault), .fault_pc_o(fault_pc),
     .fault_code_o(fault_code), .commit_valid_o(commit_valid),
     .commit_o(commit), .cycle_count_o(cycle_count),
-    .issue_count_o(issue_count), .commit_count_o(commit_count),
+    .issue_count_o(issue_count), .commit_count_o(commit_count),.diagnostic_count_o(diagnostic_count),.counter_saturated_o(counter_saturated),
     .watchdog_enable_i(1'b1),.watchdog_limit_i(32'd256),.host_mem_valid_i(1'b0),
     .host_mem_shared_i(1'b0),.host_mem_write_i(1'b0),.host_mem_address_i('0),
     .host_mem_write_data_i('0),.inject_fault_i('0),.host_mem_ready_o(),.host_mem_response_valid_o(),.host_mem_response_fault_o(),
@@ -181,6 +183,8 @@ module tb_four_warp_core;
     if ((24 * one_warp_cycles) <= (6 * four_warp_cycles))
       $fatal(1, "four warps did not improve IPC one_cycles=%0d four_cycles=%0d",
              one_warp_cycles, four_warp_cycles);
+    if(!counter_saturated||diagnostic_count[0]!=3)
+      $fatal(1,"diagnostic counter did not saturate count=%0d sticky=%b",diagnostic_count[0],counter_saturated);
 
     $display("PASS tb_four_warp_core one_cycles=%0d four_cycles=%0d relaunch_cycles=%0d one_ipc_x1000=%0d four_ipc_x1000=%0d",
              one_warp_cycles, four_warp_cycles, relaunch_cycles,

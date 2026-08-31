@@ -3,13 +3,17 @@ module tb_asic_host_sram;
   import simt_gpu_pkg::*;import simt_isa_pkg::*;
   logic clk=0,reset_n=0,cyc,stb,we,ack,err,test_mode=0,scan_enable=0,scan_in=0;
   logic[7:0]adr;logic[31:0]wdata,rdata;logic[3:0]sel;logic scan_out,running,done,fault;
+  logic bist_start=0,bist_active,bist_done,bist_fail,bist_fail_shared;logic[31:0]bist_fail_address;
   int checks;
   /* verilator lint_off BLKSEQ */always #5 clk=~clk;/* verilator lint_on BLKSEQ */
   simt_asic_top #(.USE_IHP_IMEM(0),.USE_IHP_DATA_SRAM(0))dut(
     .clk_i(clk),.reset_n_i(reset_n),.wb_cyc_i(cyc),.wb_stb_i(stb),.wb_we_i(we),
     .wb_adr_i(adr),.wb_dat_i(wdata),.wb_sel_i(sel),.wb_ack_o(ack),.wb_err_o(err),
     .wb_dat_o(rdata),.test_mode_i(test_mode),.scan_enable_i(scan_enable),
-    .scan_in_i(scan_in),.scan_out_o(scan_out),.running_o(running),.done_o(done),.fault_o(fault));
+    .scan_in_i(scan_in),.scan_out_o(scan_out),.bist_start_i(bist_start),
+    .bist_active_o(bist_active),.bist_done_o(bist_done),.bist_fail_o(bist_fail),
+    .bist_fail_shared_o(bist_fail_shared),.bist_fail_address_o(bist_fail_address),
+    .running_o(running),.done_o(done),.fault_o(fault));
   function automatic logic[31:0]enc(input opcode_t op,input logic[3:0]rd,
     input logic[3:0]ra,input logic[3:0]rb,input logic[9:0]imm);
     return {op,4'b0,rd,ra,rb,imm};endfunction
@@ -54,6 +58,9 @@ module tb_asic_host_sram;
     wr(8'h00,4);rd(8'h30,commits);if(commits!=40)$fatal(1,"commit count=%0d",commits);
     rd(8'h44,breadcrumb);if((breadcrumb&32'h1f)!=32'h1f)$fatal(1,"breadcrumbs=%h",breadcrumb);
     rd(8'h4c,value);if(!value[0])$fatal(1,"snapshot not quiescent");
+    test_mode=1;repeat(2)@(posedge clk);bist_start=1;@(posedge clk);bist_start=0;
+    repeat(100000)begin @(posedge clk);if(bist_done)break;end
+    if(!bist_done||bist_active||bist_fail)$fatal(1,"SRAM BIST failed done=%b active=%b fail=%b space=%b address=%h",bist_done,bist_active,bist_fail,bist_fail_shared,bist_fail_address);
     $display("PASS tb_asic_host_sram checks=%0d commits=%0d breadcrumbs=%h",checks,commits,breadcrumb);
     $finish;
   end

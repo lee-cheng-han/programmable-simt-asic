@@ -15,9 +15,9 @@ checkable architectural behavior.
 Release stage:  ASIC implementation readiness
 Completed:      Core; memory verification; ASIC interface/static signoff; host/SRAM integration
 Verified:       31-run XSim differential matrix, 51/51 approved bins, four formal targets, and 13/13 mutation detection
-In progress:    MPW harness integration, scan insertion, SRAM BIST, and ATPG
+In progress:    Shuttle-specific wrapper validation and external-tool ATPG closure
 Current:        17-macro mapped ASIC netlist and legally placed integrated trial
-Next:           Close tool-inserted DFT and advance the balanced ASIC configuration through routed physical design
+Next:           Close ATPG coverage, then advance the balanced ASIC configuration through routed physical design
 Not started:    Routed physical implementation, FPGA shell
 ```
 
@@ -33,6 +33,8 @@ reset-side-effect checks, synthesis equivalence, and explicit proof boundaries.
 [Host/SRAM integration](docs/host_sram_integration.md) records quiescent
 maintenance access, bounded debug capture, breadcrumbs, injection disposition,
 and the 114-check four-warp diagnostic with 40 architectural commits.
+[DFT evidence](docs/dft_release.md) records destructive full-memory BIST and
+four-chain OpenROAD scan insertion, including the explicit ATPG boundary.
 [Measured warp-interleaving results](docs/performance_results.md) report the
 checked-in one-warp versus four-warp arithmetic baseline.
 Supporting documents explain individual topics but cannot override it.
@@ -93,6 +95,8 @@ make synth-mapped
 make integrated-floorplan
 make assemble PROGRAM=tb/programs/vector_add.s
 build/simt-emulator build/vector_add.bin --memory tb/programs/vector_add.mem
+make host-plan PROGRAM=tb/programs/asic_diagnostic.s
+make dft-release
 make xsim-smoke
 ```
 
@@ -108,6 +112,7 @@ and simulator logs are retained under `build/uvm/runs/`.
 ```text
 isa/                    Canonical 32-bit ISA definition
 tools/                  Assembler, disassembler, ISA generators
+tools/host/             Transport-independent load/launch/result runtime
 model/                  C++17 architectural emulator and tests
 rtl/frontend/           Instruction memory, fetch, decoder
 rtl/register_file/      Replicated GPR file and predicate file

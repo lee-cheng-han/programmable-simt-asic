@@ -4,7 +4,8 @@ module simt_core #(
   parameter bit USE_IHP_IMEM = 1'b0,
   parameter bit USE_IHP_DATA_SRAM = 1'b0,
   parameter int unsigned BARRIER_TIMEOUT_CYCLES = 256,
-  parameter bit ENABLE_FAULT_INJECTION = 1'b0
+  parameter bit ENABLE_FAULT_INJECTION = 1'b0,
+  parameter logic[31:0] DIAGNOSTIC_COUNTER_MAX = 32'hffff_ffff
 ) (
   input  logic clk,
   input  logic rst,
@@ -29,6 +30,8 @@ module simt_core #(
   output logic [63:0] cycle_count_o,
   output logic [63:0] issue_count_o,
   output logic [63:0] commit_count_o,
+  output logic [7:0][31:0] diagnostic_count_o,
+  output logic counter_saturated_o,
   input logic watchdog_enable_i,input logic [31:0] watchdog_limit_i,
   input logic host_mem_valid_i,input logic host_mem_shared_i,input logic host_mem_write_i,
   input logic [31:0] host_mem_address_i,input logic [31:0] host_mem_write_data_i,
@@ -69,6 +72,7 @@ module simt_core #(
   logic [KERNEL_EPOCH_WIDTH-1:0] epoch_q;
   logic launched_q, done_q;
   logic[WARPS-1:0]resident_warps_q,barrier_wait_q;
+  logic dependency_blocked;
   logic [WARPS-1:0][31:0] barrier_pc_q;
   logic [31:0] barrier_timeout_q;
   logic barrier_release, barrier_arrival, barrier_release_with_arrival;
@@ -244,6 +248,7 @@ module simt_core #(
   end
 
   always_comb begin
+    dependency_blocked = 1'b0;
     selected_opcode = opcode[scheduler_warp];
     selected_pred_enable = pred_enable[scheduler_warp];
     selected_pred_invert = pred_invert[scheduler_warp];
@@ -264,6 +269,14 @@ module simt_core #(
     selected_is_memory = is_load[scheduler_warp]||is_store[scheduler_warp];
     selected_is_store = is_store[scheduler_warp];
     selected_is_shared = selected_opcode==OP_LD_S||selected_opcode==OP_ST_S;
+    for (int unsigned warp = 0; warp < WARPS; warp++) begin
+      if (warp_valid_q[warp] && fetch_buffer_valid[warp] && supported[warp] &&
+          ((|(gpr_pending[warp] & warp_gpr_sources[warp])) ||
+           (writes_gpr[warp] && gpr_pending[warp][rd[warp]]) ||
+           (|(pred_pending[warp] & warp_pred_sources[warp])) ||
+           (writes_pred[warp] && pred_pending[warp][rd[warp][1:0]])))
+        dependency_blocked = 1'b1;
+    end
   end
 
   always_comb begin
@@ -597,6 +610,8 @@ module simt_core #(
       cycle_count_o <= '0;
       issue_count_o <= '0;
       commit_count_o <= '0;
+      diagnostic_count_o <= '0;
+      counter_saturated_o <= 1'b0;
     end else if (clear_i) begin
       warp_valid_q <= '0;
       for (int unsigned warp = 0; warp < WARPS; warp++) begin
@@ -614,6 +629,8 @@ module simt_core #(
       cycle_count_o <= '0;
       issue_count_o <= '0;
       commit_count_o <= '0;
+      diagnostic_count_o <= '0;
+      counter_saturated_o <= 1'b0;
     end else begin
       if (launch_valid_i && launch_ready_o) begin
         for (int unsigned warp = 0; warp < WARPS; warp++) begin
@@ -632,12 +649,55 @@ module simt_core #(
         cycle_count_o <= '0;
         issue_count_o <= '0;
         commit_count_o <= '0;
+        diagnostic_count_o <= '0;
+        counter_saturated_o <= 1'b0;
         barrier_timeout_q<='0;
       end else if (launched_q && !done_q && !fault_valid) begin
         cycle_count_o <= cycle_count_o + 1'b1;
         if (issue_fire) issue_count_o <= issue_count_o + 1'b1;
         if (wb_commit_v && commit_ready_i)
           commit_count_o <= commit_count_o + 1'b1;
+        if (scheduler_request == '0) begin
+          if (diagnostic_count_o[0] != DIAGNOSTIC_COUNTER_MAX)
+            diagnostic_count_o[0] <= diagnostic_count_o[0] + 1'b1;
+          else counter_saturated_o <= 1'b1;
+        end
+        if (dependency_blocked) begin
+          if (diagnostic_count_o[1] != DIAGNOSTIC_COUNTER_MAX)
+            diagnostic_count_o[1] <= diagnostic_count_o[1] + 1'b1;
+          else counter_saturated_o <= 1'b1;
+        end
+        if (scheduler_valid && !selected_result_ready) begin
+          if (diagnostic_count_o[2] != DIAGNOSTIC_COUNTER_MAX)
+            diagnostic_count_o[2] <= diagnostic_count_o[2] + 1'b1;
+          else counter_saturated_o <= 1'b1;
+        end
+        if (memory_warp_busy != '0) begin
+          if (diagnostic_count_o[3] != DIAGNOSTIC_COUNTER_MAX)
+            diagnostic_count_o[3] <= diagnostic_count_o[3] + 1'b1;
+          else counter_saturated_o <= 1'b1;
+        end
+        if ((completion_v && !completion_accept) ||
+            (wb_commit_v && !commit_ready_i)) begin
+          if (diagnostic_count_o[4] != DIAGNOSTIC_COUNTER_MAX)
+            diagnostic_count_o[4] <= diagnostic_count_o[4] + 1'b1;
+          else counter_saturated_o <= 1'b1;
+        end
+        if (barrier_wait_q != '0) begin
+          if (diagnostic_count_o[5] != DIAGNOSTIC_COUNTER_MAX)
+            diagnostic_count_o[5] <= diagnostic_count_o[5] + 1'b1;
+          else counter_saturated_o <= 1'b1;
+        end
+        if (issue_fire && branch_divergent) begin
+          if (diagnostic_count_o[6] != DIAGNOSTIC_COUNTER_MAX)
+            diagnostic_count_o[6] <= diagnostic_count_o[6] + 1'b1;
+          else counter_saturated_o <= 1'b1;
+        end
+        if (fatal_now) begin
+          if (diagnostic_count_o[7] != DIAGNOSTIC_COUNTER_MAX)
+            diagnostic_count_o[7] <= diagnostic_count_o[7] + 1'b1;
+          else counter_saturated_o <= 1'b1;
+        end
       end
 
       if(barrier_release)begin

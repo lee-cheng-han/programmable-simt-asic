@@ -513,6 +513,11 @@ and submission configuration. Close harness timing, full-wrapper DRC/LVS, shuttl
 prechecks, and submission-specific repository validation. A standalone pad ring,
 package, and board are outside this release target.
 
+Current progress: a shuttle-facing digital-macro wrapper freezes the user
+clock/reset, Wishbone, interrupt, scan, BIST, and single-domain power boundary.
+Selection-specific wrapper DRC/LVS and submission validation remain physical
+release work.
+
 ### DFT release
 
 Complete scan architecture and simulation, supported ATPG reporting, destructive
@@ -527,6 +532,12 @@ ungated closure, prove enable equivalence, and force clocks active in scan mode.
 Create a minimal UPF-aware power contract even for the single-domain baseline:
 always-on assumptions, SRAM power pins, explicit absence of isolation/retention,
 power-up order, and reset requirements are checked and documented.
+
+Current progress: exclusive test-mode SRAM ownership and a destructive six-pass
+BIST pass over all 1,536 data words with first-failure capture. OpenROAD performs
+real replacement of 31,277 sequential cells and stitches four chains on the
+mapped 17-SRAM core. No supported ATPG engine is installed, so stuck-at pattern
+generation and numerical coverage remain explicitly open.
 
 ## Physical and signoff release
 

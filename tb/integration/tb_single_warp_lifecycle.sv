@@ -12,6 +12,7 @@ module tb_single_warp_lifecycle;
   int unsigned commits, mul_commits;
   always #5 clk<=~clk;
   simt_core dut(.clk(clk),.rst(rst),.clear_i(clear),.*,
+    .diagnostic_count_o(),.counter_saturated_o(),
     .prog_valid_i(prog_valid),.prog_addr_i(prog_addr),.prog_data_i(prog_data),
     .launch_valid_i(launch_valid),.launch_ready_o(launch_ready),
     .launch_pc_i(launch_pc),.running_o(running),.done_o(done),.fault_o(fault),
