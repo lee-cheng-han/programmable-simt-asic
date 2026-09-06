@@ -14,5 +14,11 @@ report_dft_config
 scan_replace
 report_dft_plan
 execute_dft_plan
+
+# Materialize constants introduced by scan replacement as real tie cells.
+# Without this step OpenROAD writes implicit one_/zero_ nets with tens of
+# thousands of sinks, which cannot be buffered or routed like ordinary logic.
+insert_tiecells sg13g2_tiehi/L_HI -prefix dft_tiehi
+insert_tiecells sg13g2_tielo/L_LO -prefix dft_tielo
 write_verilog build/dft/simt_core_scan.v
 write_db build/dft/simt_core_scan.odb
