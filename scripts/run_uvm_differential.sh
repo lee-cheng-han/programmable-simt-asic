@@ -29,6 +29,26 @@ done
   exit 2
 }
 
+xsim_version_output="$($xsim_bin --version 2>&1)"
+if [[ "$xsim_version_output" =~ v([0-9]+\.[0-9]+) ]]; then
+  xsim_release="${BASH_REMATCH[1]}"
+else
+  echo 'unable to determine the XSim release' >&2
+  printf '%s\n' "$xsim_version_output" >&2
+  exit 2
+fi
+
+standalone_override="${XSIM_STANDALONE:-auto}"
+case "$standalone_override" in
+  # XSim 2025.2's Tcl launcher faults before time zero on the current WSL host.
+  # Its standalone simulation executable is functional and accepts the same
+  # UVM plusargs, seed, and elaboration-time coverage configuration.
+  auto) [[ "$xsim_release" == 2025.2 ]] && use_standalone=1 || use_standalone=0 ;;
+  0|1) use_standalone="$standalone_override" ;;
+  *) echo 'XSIM_STANDALONE must be auto, 0, or 1' >&2; exit 2 ;;
+esac
+echo "XSim release=$xsim_release standalone=$use_standalone"
+
 mkdir -p "$repo_root/build/uvm" "$run_dir"
 python3 "$repo_root/tools/gen_isa_sv.py" \
   "$repo_root/isa/isa.json" "$repo_root/build/simt_isa_pkg.sv"
@@ -69,9 +89,20 @@ sources=(
 "$xvlog_bin" --sv --uvm_version 1.2 -L uvm \
   --include "$vivado_root/data/xsim/system_verilog/uvm_include" \
   --log "$run_dir/xvlog.log" "${sources[@]}"
-"$xelab_bin" --uvm_version 1.2 -L uvm --debug typical \
-  --timescale 1ns/1ps tb_simt_core_uvm -s tb_simt_core_uvm_sim \
-  --log "$run_dir/xelab.log"
+snapshot=tb_simt_core_uvm_sim
+xelab_args=(--uvm_version 1.2 -L uvm --timescale 1ns/1ps tb_simt_core_uvm)
+if [[ "$use_standalone" == 1 ]]; then
+  snapshot=tb_simt_core_uvm_standalone
+  xelab_args+=(--standalone)
+else
+  xelab_args+=(--debug typical)
+fi
+if [[ "${XSIM_NATIVE_COVERAGE:-0}" == 1 ]]; then
+  mkdir -p "$repo_root/build/uvm/coverage"
+  xelab_args+=(--cov_db_dir "$repo_root/build/uvm/coverage"
+    --cov_db_name "${uvm_test}_${seed}")
+fi
+"$xelab_bin" "${xelab_args[@]}" -s "$snapshot" --log "$run_dir/xelab.log"
 
 if [[ "${UVM_ELAB_ONLY:-0}" == 1 ]]; then
   echo "[PASS] UVM compile/elaboration"
@@ -81,18 +112,34 @@ fi
 rm -f "$repo_root/build/uvm_four_warp.trace" "$repo_root/build/uvm/run.cfg" \
   "$repo_root/build/uvm/portable_coverage.txt"
 xsim_args=(
-  tb_simt_core_uvm_sim --runall --onfinish quit
+  "$snapshot" --runall --onfinish quit
   --testplusarg "UVM_TESTNAME=$uvm_test" --sv_seed "$seed"
   --testplusarg "WARP_COUNT=$warp_override"
   --testplusarg "NESTED=$nested_override"
   --log "$run_dir/xsim.log"
 )
-if [[ "${XSIM_NATIVE_COVERAGE:-0}" == 1 ]]; then
-  mkdir -p "$repo_root/build/uvm/coverage"
+if [[ "${XSIM_NATIVE_COVERAGE:-0}" == 1 && "$use_standalone" == 0 ]]; then
   xsim_args+=(--cov_db_dir "$repo_root/build/uvm/coverage"
     --cov_db_name "${uvm_test}_${seed}")
 fi
-"$xsim_bin" "${xsim_args[@]}"
+if [[ "$use_standalone" == 1 ]]; then
+  standalone_bin="$sim_dir/xsim.dir/$snapshot/axsim"
+  [[ -x "$standalone_bin" ]] || {
+    echo "standalone XSim executable not found: $standalone_bin" >&2
+    exit 2
+  }
+  standalone_args=(
+    --testplusarg "UVM_TESTNAME=$uvm_test" --sv_seed "$seed"
+    --testplusarg "WARP_COUNT=$warp_override"
+    --testplusarg "NESTED=$nested_override"
+  )
+  # The generated axsim.sh points one directory above Vivado in 2025.2. Invoke
+  # axsim directly with the installation's actual runtime-library directories.
+  LD_LIBRARY_PATH="$vivado_root/lib/lnx64.o:$vivado_root/lib/lnx64.o/Default${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+    "$standalone_bin" "${standalone_args[@]}" 2>&1 | tee "$run_dir/xsim.log"
+else
+  "$xsim_bin" "${xsim_args[@]}"
+fi
 
 if grep -Eq 'UVM_(ERROR|FATAL) :[[:space:]]*[1-9]|^(Error:|ERROR: Assertion failed)' "$run_dir/xsim.log"; then
   echo "UVM/XSim reported an error; see $run_dir/xsim.log" >&2

@@ -56,3 +56,12 @@ survivors or invalid mutants. Both memory differential tests pass seeds 1
 through 5 under XSim 2026.1 with model-matched traces and zero UVM errors;
 portable coverage is 51/51. Tool-inserted DFT, routed timing, and signoff remain
 outside the current release boundary; pre-DFT static RTL signoff is closed.
+
+The XSim 2025.2 Tcl-mediated runtime exits before time zero on the current
+Ubuntu 26.04 WSL host, including for a minimal non-UVM design. Compilation,
+elaboration, and the standalone runtime remain functional. The differential
+launcher detects 2025.2 and invokes the standalone executable with the correct
+Vivado runtime-library path; focused arithmetic and memory differential tests,
+portable coverage, and native coverage database generation pass through this
+path. The 31-run release evidence above remains the XSim 2026.1 result until the
+complete 2025.2 requalification matrix is executed.

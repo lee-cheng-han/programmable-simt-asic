@@ -102,7 +102,9 @@ make xsim-smoke
 
 Requirements are Python 3.8+, a C++17 compiler, GNU Make, Verilator 5+, and
 Yosys with the slang frontend for the optional synthesis checkpoint. Vivado/XSim
-2026.1 with UVM 1.2 is the verified class-based differential runtime.
+2025.2 and 2026.1 provide the UVM 1.2 class-based differential runtime. The
+launcher automatically uses XSim's standalone runtime for 2025.2 on the current
+WSL host and accepts `XSIM_STANDALONE=0` or `1` as an explicit override.
 No package is installed automatically by repository scripts.
 UVM runs accept `UVM_TEST` and `SEED`; their programs, traces, comparison result,
 and simulator logs are retained under `build/uvm/runs/`.
