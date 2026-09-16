@@ -28,6 +28,10 @@ The qualified data-SRAM bank adapter is implemented, equivalence-tested, and
 integrated into all sixteen vector banks. Mapped synthesis retains all 17 SRAM
 macros and trial placement is legal. Wishbone control, synchronized reset, test
 ownership, scan anchors, functional/scan SDC, and a minimal UPF are integrated.
+The balanced ASIC trial passes CTS but not global routing: the retained baseline
+has seven units of SRAM-edge congestion, and a wider left-bank pitch worsened
+that to 84 units before being reverted. `make asic-grt-check` rejects the
+congested result; routed timing and detailed-route signoff remain open.
 The pre-DFT static RTL signoff gate is complete with strict lint, structural
 CDC/RDC review, reset-safety testing, and compositional integration equivalence.
 Quiescent host initialization/readback now arbitrates through both real bank
@@ -61,7 +65,8 @@ The XSim 2025.2 Tcl-mediated runtime exits before time zero on the current
 Ubuntu 26.04 WSL host, including for a minimal non-UVM design. Compilation,
 elaboration, and the standalone runtime remain functional. The differential
 launcher detects 2025.2 and invokes the standalone executable with the correct
-Vivado runtime-library path; focused arithmetic and memory differential tests,
-portable coverage, and native coverage database generation pass through this
-path. The 31-run release evidence above remains the XSim 2026.1 result until the
-complete 2025.2 requalification matrix is executed.
+Vivado runtime-library path. The complete 2025.2 processor/memory qualification
+matrix now passes 31/31 architectural trace comparisons with zero UVM errors and
+51/51 portable risk bins. Release-specific artifact paths and an explicit
+structured-control warp count keep this result separate from the earlier
+2026.1 evidence and reproducible across simulator randomization differences.

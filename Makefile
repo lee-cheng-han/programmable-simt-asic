@@ -4,7 +4,7 @@ CXXFLAGS ?= -std=c++17 -Wall -Wextra -Wpedantic -Werror -O2
 BUILD := build
 PROGRAM ?= tb/programs/arithmetic.s
 
-.PHONY: all test python-test emulator-test rtl-test docs-check asic-lint asic-contract asic-cdc asic-equivalence asic-static-signoff host-sram-contract host-sram-integration host-sram-release host-plan dft-release asic-balanced uvm-compile uvm-differential uvm-regression coverage-report coverage-closure formal mutation-smoke sram-check sram-adapter-check trial-floorplan integrated-floorplan synth-elab synth synth-mapped assemble disassemble xsim-smoke clean
+.PHONY: all test python-test emulator-test rtl-test docs-check asic-lint asic-contract asic-cdc asic-equivalence asic-static-signoff host-sram-contract host-sram-integration host-sram-release host-plan dft-release asic-balanced asic-grt-check uvm-compile uvm-differential uvm-regression uvm-release uvm-release-check coverage-report coverage-closure formal mutation-smoke sram-check sram-adapter-check trial-floorplan integrated-floorplan synth-elab synth synth-mapped assemble disassemble xsim-smoke clean
 all: $(BUILD)/simt-emulator
 
 $(BUILD):
@@ -61,6 +61,9 @@ dft-release: host-sram-integration
 asic-balanced:
 	scripts/run_balanced_physical.sh
 
+asic-grt-check:
+	$(PYTHON) scripts/check_balanced_grt.py
+
 uvm-compile: $(BUILD)/simt-emulator
 	UVM_ELAB_ONLY=1 scripts/run_uvm_differential.sh
 
@@ -69,6 +72,14 @@ uvm-differential: $(BUILD)/simt-emulator
 
 uvm-regression: $(BUILD)/simt-emulator
 	scripts/run_uvm_regression.sh $(UVM_SEEDS)
+
+uvm-release: $(BUILD)/simt-emulator
+	XSIM_RELEASE=$(XSIM_RELEASE) scripts/run_uvm_release.sh
+	$(MAKE) uvm-release-check XSIM_RELEASE=$(XSIM_RELEASE)
+
+uvm-release-check:
+	$(PYTHON) scripts/check_uvm_release.py --release $(XSIM_RELEASE)
+	XSIM_RELEASE=$(XSIM_RELEASE) REQUIRE_COVERAGE_CLOSURE=1 $(PYTHON) scripts/merge_portable_coverage.py
 
 coverage-report:
 	$(PYTHON) scripts/merge_portable_coverage.py

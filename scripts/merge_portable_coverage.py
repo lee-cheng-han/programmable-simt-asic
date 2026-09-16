@@ -6,7 +6,11 @@ import os
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNS = ROOT / "build" / "uvm" / "runs"
-REPORT = ROOT / "build" / "uvm" / "portable_coverage_report.md"
+RELEASE = os.environ.get("XSIM_RELEASE")
+REPORT = ROOT / "build" / "uvm" / (
+    f"portable_coverage_report_{RELEASE}.md" if RELEASE
+    else "portable_coverage_report.md"
+)
 
 EXPECTED = {
     "opcode": set(range(1, 26)) | {26, 27, 29, 30, 31},
@@ -21,9 +25,26 @@ EXPECTED = {
 }
 
 observed = {name: set() for name in EXPECTED}
-manifests = sorted(RUNS.glob("*/portable_coverage.txt"))
+if RELEASE and os.environ.get("REQUIRE_COVERAGE_CLOSURE") == "1":
+    from check_uvm_release import expected_cases
+
+    manifests = [RUNS / RELEASE / f"{test}_{seed}" / "portable_coverage.txt"
+                 for test, seed in expected_cases()]
+    missing = [str(path) for path in manifests if not path.is_file()]
+    if missing:
+        raise SystemExit(f"missing approved release manifests: {', '.join(missing)}")
+elif RELEASE:
+    manifests = sorted((RUNS / RELEASE).glob("*/portable_coverage.txt"))
+else:
+    manifests = sorted(RUNS.rglob("portable_coverage.txt"))
 if not manifests:
-    raise SystemExit("no portable coverage manifests found")
+    raise SystemExit(f"no portable coverage manifests found for {RELEASE or 'any release'}")
+if not RELEASE and os.environ.get("REQUIRE_COVERAGE_CLOSURE") == "1":
+    releases = {manifest.relative_to(RUNS).parts[0]
+                if len(manifest.relative_to(RUNS).parts) > 2 else "legacy"
+                for manifest in manifests}
+    if len(releases) > 1:
+        raise SystemExit("multiple XSim releases found; set XSIM_RELEASE for closure")
 for manifest in manifests:
     for line in manifest.read_text(encoding="utf-8").splitlines():
         name, value = line.split()
@@ -32,6 +53,7 @@ for manifest in manifests:
 
 lines = [
     "# Portable architectural coverage report", "",
+    f"XSim release: {RELEASE or 'mixed/legacy'}.  ",
     f"Merged manifests: {len(manifests)}.", "",
     "| Coverage point | Hit | Total | Percent | Missing bins |",
     "|---|---:|---:|---:|---|",

@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-export ORFS_ROOT=${ORFS_ROOT:-/home/leech/OpenROAD-flow-scripts}
+export ORFS_ROOT="${ORFS_ROOT:-/home/leech/OpenROAD-flow-scripts}"
 command -v openroad >/dev/null 2>&1 || { echo 'openroad not found' >&2; exit 2; }
 test -f "$ORFS_ROOT/flow/Makefile" || { echo "ORFS flow not found: $ORFS_ROOT" >&2; exit 2; }
 
@@ -20,6 +20,8 @@ make -C "$ORFS_ROOT/flow" \
   DESIGN_CONFIG="$config" \
   RESULTS_DIR="$results" LOG_DIR="$logs" \
   REPORTS_DIR="$reports" OBJECTS_DIR="$objects"
+
+python3 scripts/check_balanced_grt.py
 
 test -s "$results/6_final.gds"
 test -s "$results/6_final.v"

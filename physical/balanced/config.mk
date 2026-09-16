@@ -40,5 +40,7 @@ export CTS_ARGS = -sink_clustering_enable -repair_clock_nets -apply_ndr none
 # Preserve reproducibility and make expensive metrics explicit.
 export DETAILED_METRICS = 1
 export REPORT_CLOCK_SKEW = 1
-export GENERATE_ARTIFACTS_ON_FAILURE = 1
+# Preserve a failure-suffixed database, but do not let a congested global route
+# produce a normal stage output and appear to have passed the make gate.
+export GENERATE_ARTIFACTS_ON_FAILURE = 0
 export SKIP_REPORT_METRICS = 1

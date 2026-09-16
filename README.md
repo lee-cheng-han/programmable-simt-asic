@@ -26,6 +26,8 @@ The authoritative contract is [docs/architecture.md](docs/architecture.md).
 regression, coverage, formal, mutation, synthesis, and placement gates.
 [Memory verification closure](docs/memory_verification_closure.md) records the
 passing ten-run licensed regression and 51/51 coverage release gate.
+[XSim 2025.2 qualification](docs/xsim_2025_2_release.md) records the separate
+31-run, 51-bin standalone-runtime result and Tcl launcher limitation.
 [ASIC interface freeze](docs/asic_interface_freeze.md) records the Wishbone map,
 reset release, test ownership, scan anchors, mode constraints, and power contract.
 [Static RTL signoff](docs/static_rtl_signoff.md) records the clock/reset inventory,
@@ -35,6 +37,8 @@ maintenance access, bounded debug capture, breadcrumbs, injection disposition,
 and the 114-check four-warp diagnostic with 40 architectural commits.
 [DFT evidence](docs/dft_release.md) records destructive full-memory BIST and
 four-chain OpenROAD scan insertion, including the explicit ATPG boundary.
+[Balanced routing trials](docs/physical_route_trials.md) record the current
+SRAM-edge congestion failure and the enforced route gate.
 [Measured warp-interleaving results](docs/performance_results.md) report the
 checked-in one-warp versus four-warp arithmetic baseline.
 Supporting documents explain individual topics but cannot override it.
@@ -107,7 +111,14 @@ launcher automatically uses XSim's standalone runtime for 2025.2 on the current
 WSL host and accepts `XSIM_STANDALONE=0` or `1` as an explicit override.
 No package is installed automatically by repository scripts.
 UVM runs accept `UVM_TEST` and `SEED`; their programs, traces, comparison result,
-and simulator logs are retained under `build/uvm/runs/`.
+and simulator logs are retained under `build/uvm/runs/<XSim release>/`. The
+reproducible 2025.2 qualification command is
+`XILINX_VIVADO=/path/to/Vivado/2025.2/Vivado make uvm-release XSIM_RELEASE=2025.2`.
+It fixes the structured-control warp counts and checks all 31 processor and
+memory runs without mixing simulator versions. The current 2025.2 run passed
+31/31 architectural trace comparisons with zero UVM errors and hit 51/51
+portable coverage bins. `make uvm-release-check XSIM_RELEASE=2025.2` checks
+the retained artifacts without rerunning simulation.
 
 ## Current repository components
 

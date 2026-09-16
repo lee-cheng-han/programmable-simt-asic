@@ -6,8 +6,6 @@ uvm_test="${UVM_TEST:-four_warp_differential_test}"
 seed="${SEED:-1}"
 warp_override="${WARP_COUNT:-0}"
 nested_override="${NESTED:-2}"
-run_dir="$repo_root/build/uvm/runs/${uvm_test}_${seed}"
-sim_dir="${TMPDIR:-/tmp}/simt_uvm_xsim/${uvm_test}_${seed}"
 
 if [[ -n "${XILINX_VIVADO:-}" ]]; then
   vivado_root="$XILINX_VIVADO"
@@ -48,8 +46,15 @@ case "$standalone_override" in
   *) echo 'XSIM_STANDALONE must be auto, 0, or 1' >&2; exit 2 ;;
 esac
 echo "XSim release=$xsim_release standalone=$use_standalone"
+run_dir="$repo_root/build/uvm/runs/$xsim_release/${uvm_test}_${seed}"
+sim_dir="${TMPDIR:-/tmp}/simt_uvm_xsim/$xsim_release/${uvm_test}_${seed}"
+coverage_dir="$repo_root/build/uvm/coverage/$xsim_release"
 
 mkdir -p "$repo_root/build/uvm" "$run_dir"
+# A failed rerun must not leave a previous passing comparison in the retained
+# release directory. Preserve unrelated diagnostics but invalidate gate inputs.
+rm -f "$run_dir/comparison.txt" "$run_dir/portable_coverage.txt" \
+  "$run_dir/xsim.log" "$run_dir/xelab.log" "$run_dir/xvlog.log"
 python3 "$repo_root/tools/gen_isa_sv.py" \
   "$repo_root/isa/isa.json" "$repo_root/build/simt_isa_pkg.sv"
 
@@ -98,8 +103,8 @@ else
   xelab_args+=(--debug typical)
 fi
 if [[ "${XSIM_NATIVE_COVERAGE:-0}" == 1 ]]; then
-  mkdir -p "$repo_root/build/uvm/coverage"
-  xelab_args+=(--cov_db_dir "$repo_root/build/uvm/coverage"
+  mkdir -p "$coverage_dir"
+  xelab_args+=(--cov_db_dir "$coverage_dir"
     --cov_db_name "${uvm_test}_${seed}")
 fi
 "$xelab_bin" "${xelab_args[@]}" -s "$snapshot" --log "$run_dir/xelab.log"
@@ -119,7 +124,7 @@ xsim_args=(
   --log "$run_dir/xsim.log"
 )
 if [[ "${XSIM_NATIVE_COVERAGE:-0}" == 1 && "$use_standalone" == 0 ]]; then
-  xsim_args+=(--cov_db_dir "$repo_root/build/uvm/coverage"
+  xsim_args+=(--cov_db_dir "$coverage_dir"
     --cov_db_name "${uvm_test}_${seed}")
 fi
 if [[ "$use_standalone" == 1 ]]; then

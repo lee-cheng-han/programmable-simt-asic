@@ -1,6 +1,14 @@
 #!/usr/bin/env sh
 set -eu
-command -v xvlog >/dev/null 2>&1 || { echo 'xvlog not found; install/source Vivado 2025.2' >&2; exit 2; }
+if [ -n "${XILINX_VIVADO:-}" ]; then
+  test -x "$XILINX_VIVADO/bin/xvlog" || {
+    echo "xvlog not found under XILINX_VIVADO=$XILINX_VIVADO" >&2
+    exit 2
+  }
+  PATH="$XILINX_VIVADO/bin:$PATH"
+  export PATH
+fi
+command -v xvlog >/dev/null 2>&1 || { echo 'xvlog not found; source Vivado first' >&2; exit 2; }
 mkdir -p build/xsim
 python3 tools/gen_isa_sv.py isa/isa.json build/simt_isa_pkg.sv
 xvlog -sv build/simt_isa_pkg.sv rtl/simt_gpu_pkg.sv \
