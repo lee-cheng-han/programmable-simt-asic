@@ -22,6 +22,8 @@ required_sources={
     'scripts/run_uvm_differential.sh':'rtl/memory/data_sram_bank_adapter.sv',
     'scripts/run_early_synthesis.sh':'rtl/memory/data_sram_bank_adapter.sv',
     'scripts/run_mapped_synthesis.sh':'rtl/memory/data_sram_bank_adapter.sv',
+    'scripts/run_mpw_mapped_synthesis.sh':'rtl/asic/simt_mpw_wrapper.sv',
+    'scripts/run_mpw_wrapper_validation.sh':'tb/integration/tb_mpw_wrapper.sv',
     'scripts/run_bounded_formal.sh':'rtl/memory/data_sram_bank_adapter.sv',
 }
 for filename,needle in required_sources.items():

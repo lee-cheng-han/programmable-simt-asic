@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -19,6 +20,7 @@ class BalancedGrtCheckTest(unittest.TestCase):
             base = Path(temp)
             for folder in ("logs", "results", "reports"):
                 (base / folder).mkdir()
+            (base / "results/4_cts.odb").write_text("input\n", encoding="utf-8")
             for name in ("logs/5_1_grt.log", "results/5_1_grt.odb",
                          "results/5_1_grt.sdc", "results/route.guide"):
                 (base / name).write_text("result\n", encoding="utf-8")
@@ -29,9 +31,38 @@ class BalancedGrtCheckTest(unittest.TestCase):
                 "no violations\n", encoding="utf-8")
             self.assertEqual(CHECKER.check_run(base), [])
 
+            (base / "reports/congestion.rpt").unlink()
+            (base / "logs/5_1_grt.log").write_text(
+                "Final congestion report:\n"
+                "Total 12000119 3141360 26.18% 0 /  0 /  0\n",
+                encoding="utf-8")
+            self.assertEqual(CHECKER.check_run(base), [])
+
+            # A clean FastRoute run may leave an old violation report unless
+            # the launcher removes it.  The current zero-congestion log is the
+            # authoritative fallback for that legacy build-directory case.
+            old = (base / "results/4_cts.odb").stat().st_mtime_ns - 1
             (base / "reports/congestion.rpt").write_text(
                 "violation type: Horizontal congestion\n", encoding="utf-8")
+            os.utime(base / "reports/congestion.rpt", ns=(old, old))
+            self.assertEqual(CHECKER.check_run(base), [])
+
+            (base / "logs/5_1_grt.log").write_text("result\n", encoding="utf-8")
+            self.assertIn(
+                "missing congestion report and zero-congestion summary",
+                CHECKER.check_run(base),
+            )
+
+            (base / "reports/congestion.rpt").write_text(
+                "violation type: Horizontal congestion\n", encoding="utf-8")
+            current = (base / "results/4_cts.odb").stat().st_mtime_ns + 1
+            os.utime(base / "reports/congestion.rpt", ns=(current, current))
             self.assertIn("global-route congestion violations remain",
+                          CHECKER.check_run(base))
+
+            future = (base / "results/route.guide").stat().st_mtime_ns + 1
+            os.utime(base / "results/4_cts.odb", ns=(future, future))
+            self.assertIn("stale global-route artifact results/route.guide",
                           CHECKER.check_run(base))
 
     def test_missing_artifact_and_tool_error_fail(self):
@@ -41,6 +72,7 @@ class BalancedGrtCheckTest(unittest.TestCase):
                           CHECKER.check_run(base))
             for folder in ("logs", "results", "reports"):
                 (base / folder).mkdir()
+            (base / "results/4_cts.odb").write_text("input\n", encoding="utf-8")
             for name in ("logs/5_1_grt.log", "results/5_1_grt.odb",
                          "results/5_1_grt.sdc", "results/route.guide"):
                 (base / name).write_text("result\n", encoding="utf-8")

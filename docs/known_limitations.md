@@ -28,15 +28,17 @@ The qualified data-SRAM bank adapter is implemented, equivalence-tested, and
 integrated into all sixteen vector banks. Mapped synthesis retains all 17 SRAM
 macros and trial placement is legal. Wishbone control, synchronized reset, test
 ownership, scan anchors, functional/scan SDC, and a minimal UPF are integrated.
-The balanced ASIC trial passes CTS but not global routing: the retained baseline
-has seven units of SRAM-edge congestion, and a wider left-bank pitch worsened
-that to 84 units before being reverted. `make asic-grt-check` rejects the
-congested result; routed timing and detailed-route signoff remain open.
+The older inner-core-only physical trial retains seven units of SRAM-edge
+congestion and is not a release artifact. The complete MPW wrapper supersedes it:
+rotating all 17 SRAMs closes global routing with zero congestion and +2.067 ns
+estimated slack. Two antenna violations, detailed routing, extracted timing,
+power integrity, DRC/LVS, and final GDS signoff remain open.
 The pre-DFT static RTL signoff gate is complete with strict lint, structural
 CDC/RDC review, reset-safety testing, and compositional integration equivalence.
 Quiescent host initialization/readback now arbitrates through both real bank
 engines, and the production manifest disables five verification-only injection
-hooks. Scan insertion/ATPG, SRAM BIST, routed timing, PDN, and final physical signoff
+hooks. Four-chain scan insertion and destructive SRAM BIST are complete; external
+ATPG coverage, routed timing, power-integrity analysis, and final physical signoff
 are not yet complete. A six-cycle bounded bank-engine safety proof now passes; broader
 tracker, ordering, and liveness proofs remain open.
 
@@ -46,7 +48,7 @@ memory images are simple text fixtures rather than an ELF ABI. The older
 one-entry writeback component remains test history and is not the architectural
 commit path.
 
-The UVM 1.2 environment runs with XSim 2026.1 on the current host. Directed,
+The UVM 1.2 environment is qualified with XSim 2025.2 on the current host. Directed,
 legal constrained-random, and randomized execution/writeback-backpressure tests
 produce model-matched traces and retain portable per-seed coverage manifests. Structured
 shallow and nested control flow passes differential testing with one

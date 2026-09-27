@@ -6,6 +6,19 @@ required = {
     "rtl/asic/simt_asic_top.sv": ("test_mode_i", "scan_enable_i", "wb_cyc_i", "reset_synchronizer"),
     "physical/constraints/functional.sdc": ("create_clock", "set_case_analysis 0 [get_ports test_mode_i]"),
     "physical/constraints/scan_shift.sdc": ("create_clock", "set_case_analysis 1 [get_ports test_mode_i]"),
+    "physical/constraints/mpw_wrapper_functional.sdc": (
+        "[get_ports user_clock_i]",
+        "[get_ports user_reset_n_i]",
+        "set_case_analysis 0 [get_ports test_mode_i]",
+        "set_case_analysis 0 [get_ports scan_enable_i]",
+    ),
+    "physical/constraints/mpw_wrapper_scan_shift.sdc": (
+        "[get_ports user_clock_i]",
+        "scan_in_0",
+        "scan_out_0",
+        "set_case_analysis 1 [get_ports test_mode_i]",
+        "set_case_analysis 1 [get_ports scan_enable_i]",
+    ),
     "physical/simt_asic.upf": ("create_power_domain PD_CORE", "set_domain_supply_net"),
 }
 for relative, tokens in required.items():

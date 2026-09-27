@@ -8,6 +8,7 @@ timing, detailed-route DRC, or GDS signoff is claimed.
 |---:|---|---:|---|
 | 120 µm | Original placement, right-bank routing apron | 7 | Failed; seven local overflow boxes near the left SRAM stack |
 | 170 µm | Wider left-bank spacing, same right apron | 84 | Failed; 77 violation boxes after 30 repair iterations |
+| 120 µm plus 60 µm gap after bank 2 | Targeted escape-channel experiment | 119 | Failed; 96 violation boxes after 30 repair iterations |
 
 The 170-µm experiment passed detailed-placement legalization and CTS, with no
 pre-route setup violations reported and three hold endpoints repaired. Its
@@ -17,9 +18,17 @@ final report retained 77 boxes. Most final hotspots are near the right edge
 of the left SRAM column, around x=760–810 µm. The wider spacing has therefore
 been reverted to the 120-µm baseline.
 
+The targeted-gap experiment also passed placement and CTS; its six initial
+post-CTS setup endpoints were repaired to +0.133 ns and no hold violations were
+reported. Routing improved from 947 violation boxes at iteration 5 to 75 at
+iteration 10, then regressed to 96 boxes and total congestion 119 after all 30
+iterations. The remaining hotspots spread along the left macro edge rather than
+staying in the intended bank-2 escape channel, so this change was also reverted.
+
 The flow now sets `GENERATE_ARTIFACTS_ON_FAILURE=0`, so OpenROAD writes a
 failure-suffixed database and exits nonzero on congested global routing. The
 independent `make asic-grt-check` gate also rejects a missing route guide,
-router errors, or any residual congestion report entry. The next physical
+router errors, stale outputs older than the CTS database, or any residual
+congestion report entry. The next physical
 change must address local SRAM pin escape/routing capacity and rerun placement,
 CTS, and global routing. Pre-route setup/hold estimates are not timing closure.

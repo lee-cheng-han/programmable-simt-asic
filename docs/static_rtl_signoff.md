@@ -5,7 +5,9 @@ has one functional clock domain. All host inputs are synchronous to `clk_i` by
 interface contract. External reset is the only asynchronous control: it asserts
 the two-stage reset synchronizer asynchronously and reaches all functional state
 only through its synchronous release output. Test mode is a static mode strap
-that is constrained outside functional timing and holds the core reset.
+that is constrained outside functional timing. Entering test mode generates a
+synchronous one-cycle clear for the core while BIST takes ownership of memory;
+it does not add test mode to the asynchronous reset tree.
 
 ## Clock and reset inventory
 
@@ -20,6 +22,8 @@ The external reset path is false-pathed only to the synchronizer assertion pins.
 Reset deassertion is synchronous. Assertions and directed tests require reset to
 suppress Wishbone responses, launch, clear, and instruction programming. Test
 mode independently suppresses those side effects and host acknowledgements.
+The clock/reset contract checker also verifies that test-mode entry is sampled
+on `clk_i` and reaches the processor through its synchronous `clear_i` input.
 
 ## Equivalence boundary
 

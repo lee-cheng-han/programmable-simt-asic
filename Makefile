@@ -4,7 +4,7 @@ CXXFLAGS ?= -std=c++17 -Wall -Wextra -Wpedantic -Werror -O2
 BUILD := build
 PROGRAM ?= tb/programs/arithmetic.s
 
-.PHONY: all test python-test emulator-test rtl-test docs-check asic-lint asic-contract asic-cdc asic-equivalence asic-static-signoff host-sram-contract host-sram-integration host-sram-release host-plan dft-release asic-balanced asic-grt-check uvm-compile uvm-differential uvm-regression uvm-release uvm-release-check coverage-report coverage-closure formal mutation-smoke sram-check sram-adapter-check trial-floorplan integrated-floorplan synth-elab synth synth-mapped assemble disassemble xsim-smoke clean
+.PHONY: all test python-test emulator-test rtl-test docs-check asic-lint asic-contract asic-cdc asic-equivalence asic-static-signoff host-sram-contract host-sram-integration host-sram-release host-plan mpw-wrapper-validation synth-mpw-mapped mpw-mapped-timing scan-audit mpw-scan-timing dft-release mpw-floorplan mpw-place mpw-cts mpw-grt mpw-drt mpw-physical-close asic-balanced asic-grt-check uvm-compile uvm-differential uvm-regression uvm-release uvm-release-check coverage-report coverage-closure formal mutation-smoke sram-check sram-adapter-check trial-floorplan integrated-floorplan synth-elab synth synth-mapped assemble disassemble xsim-smoke clean
 all: $(BUILD)/simt-emulator
 
 $(BUILD):
@@ -52,11 +52,44 @@ host-sram-contract:
 
 host-sram-release: asic-static-signoff host-sram-contract host-sram-integration
 
+mpw-wrapper-validation:
+	scripts/run_mpw_wrapper_validation.sh
+
+synth-mpw-mapped:
+	scripts/run_mpw_mapped_synthesis.sh
+
+mpw-mapped-timing:
+	scripts/run_mpw_mapped_timing.sh
+
 host-plan: assemble
 	$(PYTHON) tools/host/runtime.py $(BUILD)/$(notdir $(basename $(PROGRAM))).bin --output $(BUILD)/host_plan.json
 
-dft-release: host-sram-integration
+dft-release: host-sram-integration mpw-wrapper-validation
 	scripts/run_dft_release.sh
+
+scan-audit:
+	$(PYTHON) scripts/check_scan_netlist.py build/dft/simt_mpw_wrapper_scan.v --chains 4 --max-imbalance 4
+
+mpw-scan-timing:
+	scripts/run_mpw_scan_timing.sh
+
+mpw-floorplan:
+	scripts/run_mpw_floorplan.sh
+
+mpw-place:
+	scripts/run_mpw_place.sh
+
+mpw-cts:
+	scripts/run_mpw_cts.sh
+
+mpw-grt:
+	scripts/run_mpw_global_route.sh
+
+mpw-drt:
+	scripts/run_mpw_detailed_route.sh
+
+mpw-physical-close:
+	scripts/run_mpw_physical_close.sh
 
 asic-balanced:
 	scripts/run_balanced_physical.sh

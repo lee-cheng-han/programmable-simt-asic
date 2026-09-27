@@ -22,7 +22,10 @@ if async_events != [("rtl/asic/reset_synchronizer.sv", "posedge clk_i or posedge
 top = (ROOT / "rtl/asic/simt_asic_top.sv").read_text()
 required_top = (
     "reset_synchronizer reset_u",
-    "assign core_reset = reset_sync || test_mode_i",
+    "assign core_reset = reset_sync",
+    "assign test_entry=test_mode_i&&!test_mode_q",
+    "if(reset_sync)test_mode_q<=1'b0;else test_mode_q<=test_mode_i",
+    ".clear_i(clear||test_entry)",
     ".clk(clk_i)",
     ".clk_i",
 )

@@ -15,10 +15,10 @@ checkable architectural behavior.
 Release stage:  ASIC implementation readiness
 Completed:      Core; memory verification; ASIC interface/static signoff; host/SRAM integration
 Verified:       31-run XSim differential matrix, 51/51 approved bins, four formal targets, and 13/13 mutation detection
-In progress:    Shuttle-specific wrapper validation and external-tool ATPG closure
-Current:        17-macro mapped ASIC netlist and legally placed integrated trial
-Next:           Close ATPG coverage, then advance the balanced ASIC configuration through routed physical design
-Not started:    Routed physical implementation, FPGA shell
+In progress:    Full-wrapper detailed routing/signoff and external-tool ATPG closure
+Current:        Congestion-free 17-SRAM MPW-wrapper global route with +2.067 ns estimated slack
+Next:           Complete detailed route/signoff and run supported ATPG
+Not started:    FPGA shell
 ```
 
 The authoritative contract is [docs/architecture.md](docs/architecture.md).
@@ -36,7 +36,10 @@ reset-side-effect checks, synthesis equivalence, and explicit proof boundaries.
 maintenance access, bounded debug capture, breadcrumbs, injection disposition,
 and the 114-check four-warp diagnostic with 40 architectural commits.
 [DFT evidence](docs/dft_release.md) records destructive full-memory BIST and
-four-chain OpenROAD scan insertion, including the explicit ATPG boundary.
+four balanced, structurally audited OpenROAD scan chains, including the explicit
+ATPG boundary.
+[MPW physical evidence](docs/mpw_physical.md) records the complete-wrapper
+17-SRAM floorplan/placement/CTS and its remaining routing, power, and signoff gates.
 [Balanced routing trials](docs/physical_route_trials.md) record the current
 SRAM-edge congestion failure and the enforced route gate.
 [Measured warp-interleaving results](docs/performance_results.md) report the
@@ -96,6 +99,12 @@ make sram-check sram-adapter-check
 make synth-elab
 make synth
 make synth-mapped
+make synth-mpw-mapped
+make mpw-mapped-timing
+make mpw-floorplan
+make mpw-place
+make mpw-cts
+make mpw-grt
 make integrated-floorplan
 make assemble PROGRAM=tb/programs/vector_add.s
 build/simt-emulator build/vector_add.bin --memory tb/programs/vector_add.mem

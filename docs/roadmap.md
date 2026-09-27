@@ -515,8 +515,22 @@ package, and board are outside this release target.
 
 Current progress: a shuttle-facing digital-macro wrapper freezes the user
 clock/reset, Wishbone, interrupt, scan, BIST, and single-domain power boundary.
-Selection-specific wrapper DRC/LVS and submission validation remain physical
-release work.
+A 17-check regression covers that boundary, complete mapped synthesis retains
+all 17 IHP SRAMs, and wrapper-specific functional/scan SDCs now exist. The
+pre-placement slow-corner report exposes an unbuffered 4,097-load net and
+-300.686 ns setup slack, so wrapper timing remains explicitly open until
+physical optimization. The complete wrapper now also passes an IHP floorplan
+stage with all 17 SRAMs retained in a 3.70 mm × 3.00 mm die; reported design
+area is 4,601,464 square micrometres at 43% utilization. Timing- and
+routability-driven placement also passes with 228,120 legally placed cells at
+45.8% post-resize utilization and zero detailed-placement violations. CTS then
+builds trees for all 17 SRAM and 31,518 register sinks; post-CTS legalization
+passes at 48.2% utilization, setup is clean, and hold repair reaches +0.006 ns
+estimated WNS. The first R0 macro route exposed 1,515 SRAM pin-band congestion
+units; rotating the 17 SRAMs closes the measured blocker. The accepted wrapper
+route now covers 236,311 nets with zero congestion and +2.067 ns estimated slack.
+Detailed routing, the final two antenna violations, wrapper DRC/LVS, and
+submission validation remain physical release work.
 
 ### DFT release
 
@@ -535,9 +549,15 @@ power-up order, and reset requirements are checked and documented.
 
 Current progress: exclusive test-mode SRAM ownership and a destructive six-pass
 BIST pass over all 1,536 data words with first-failure capture. OpenROAD performs
-real replacement of 31,277 sequential cells and stitches four chains on the
-mapped 17-SRAM core. No supported ATPG engine is installed, so stuck-at pattern
-generation and numerical coverage remain explicitly open.
+real replacement of 31,321 sequential cells and stitches four wrapper-level
+chains of 7,831, 7,831, 7,831, and 7,828 cells on the mapped 17-SRAM design.
+A structural connectivity audit proves every scan cell belongs to exactly one
+complete input-to-output chain and enforces a four-cell imbalance bound. The MPW wrapper
+has a dedicated interrupt, Wishbone, test-mode, scan-boundary, and SRAM-BIST
+regression, plus independent functional and scan-shift timing contracts. No
+supported ATPG engine is installed, so stuck-at pattern generation and numerical
+coverage remain explicitly open. Pre-placement 10 MHz scan-shift setup passes at
++25.205 ns; the -0.510 ns ideal-clock hold result remains a CTS/route repair item.
 
 ## Physical and signoff release
 
